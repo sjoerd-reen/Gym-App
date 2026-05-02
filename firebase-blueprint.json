@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the fitness app (Sjoerd or Nikita)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "enum": ["Sjoerd", "Nikita"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Workout": {
+      "title": "Workout",
+      "description": "A workout routine (e.g., Upper, Lower & Abs)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "order"]
+    },
+    "Exercise": {
+      "title": "Exercise",
+      "description": "An exercise within a workout",
+      "type": "object",
+      "properties": {
+        "workoutId": { "type": "string" },
+        "name": { "type": "string" },
+        "notes": { "type": "string" },
+        "targetSets": { "type": "number" },
+        "targetReps": { "type": "string" },
+        "tempo": { "type": "string" },
+        "rest": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["workoutId", "name", "targetSets", "targetReps", "order"]
+    },
+    "WorkoutLog": {
+      "title": "Workout Log",
+      "description": "A logged session of a workout by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "workoutId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["userId", "workoutId", "date", "completed"]
+    },
+    "ExerciseLog": {
+      "title": "Exercise Log",
+      "description": "Logged sets for a specific exercise in a workout log",
+      "type": "object",
+      "properties": {
+        "workoutLogId": { "type": "string" },
+        "exerciseId": { "type": "string" },
+        "sets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "setNumber": { "type": "number" },
+              "weight": { "type": "number" },
+              "reps": { "type": "number" },
+              "completed": { "type": "boolean" }
+            },
+            "required": ["setNumber", "weight", "reps", "completed"]
+          }
+        }
+      },
+      "required": ["workoutLogId", "exerciseId", "sets"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles"
+    },
+    "/workouts/{workoutId}": {
+      "schema": { "$ref": "#/entities/Workout" },
+      "description": "Stores workout routines"
+    },
+    "/exercises/{exerciseId}": {
+      "schema": { "$ref": "#/entities/Exercise" },
+      "description": "Stores exercises for workouts"
+    },
+    "/workoutLogs/{workoutLogId}": {
+      "schema": { "$ref": "#/entities/WorkoutLog" },
+      "description": "Stores logged workout sessions"
+    },
+    "/exerciseLogs/{exerciseLogId}": {
+      "schema": { "$ref": "#/entities/ExerciseLog" },
+      "description": "Stores logged sets for exercises"
+    }
+  }
+}

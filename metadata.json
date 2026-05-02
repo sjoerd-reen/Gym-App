@@ -1,0 +1,5 @@
+{
+  "name": "Fitness Tracker Sjoerd & Nikita",
+  "description": "A Cupertino-style PWA fitness tracker for Sjoerd and Nikita, replacing their Excel sheet.",
+  "requestFramePermissions": []
+}
