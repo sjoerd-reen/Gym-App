@@ -1,5 +1,6 @@
 import { SJOERD_DATA } from "@/src/data/sjoerd-data";
 import { NIKITA_DATA } from "@/src/data/nikita-data";
+import { saveRoutinesToFirestore, loadRoutinesFromFirestore } from "@/src/lib/firebase";
 
 export interface Routine {
   id: string;
@@ -39,6 +40,19 @@ export function getRoutines(user: "Sjoerd" | "Nikita"): Routine[] {
 
 export function saveRoutines(user: "Sjoerd" | "Nikita", routines: Routine[]) {
   localStorage.setItem(`routines_${user}`, JSON.stringify(routines));
+  saveRoutinesToFirestore(user, routines).catch(console.error);
+}
+
+export async function syncRoutinesFromCloud(user: "Sjoerd" | "Nikita"): Promise<Routine[] | null> {
+  try {
+    const cloudData = await loadRoutinesFromFirestore(user);
+    if (!cloudData) return null;
+    const routines = cloudData as Routine[];
+    localStorage.setItem(`routines_${user}`, JSON.stringify(routines));
+    return routines;
+  } catch {
+    return null;
+  }
 }
 
 export function saveWorkoutSession(

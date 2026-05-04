@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Dumbbell, Archive, RotateCcw, Plus, X, Upload, Clock, ChevronRight, Flame } from "lucide-react";
 import { cn, compressImage } from "@/src/lib/utils";
-import { getRoutines, saveRoutines, Routine, getLastTrainedDate, formatRelativeDate } from "@/src/lib/storage";
+import { getRoutines, saveRoutines, syncRoutinesFromCloud, Routine, getLastTrainedDate, formatRelativeDate } from "@/src/lib/storage";
 import { uploadImageToFirestore, getImageUrlFromFirestore } from "@/src/lib/firebase";
 
 function FirestoreImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
@@ -59,6 +59,7 @@ export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
   useEffect(() => {
     setRoutines(getRoutines(user));
     setShowArchived(false);
+    syncRoutinesFromCloud(user).then(cloud => { if (cloud) setRoutines(cloud); });
   }, [user]);
 
   const greeting = (() => {
