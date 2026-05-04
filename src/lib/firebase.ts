@@ -10,9 +10,10 @@ export const storage = getStorage(app);
 export const auth = getAuth(app);
 
 // Sign in anonymously so we can read/write to Firestore securely
-signInAnonymously(auth).catch(console.error);
+const authReady = signInAnonymously(auth).catch(console.error);
 
 export async function uploadImageToFirestore(base64String: string): Promise<string> {
+  await authReady;
   const imageId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   await setDoc(doc(db, "exercise_images", imageId), {
     dataUrl: base64String,
@@ -23,7 +24,7 @@ export async function uploadImageToFirestore(base64String: string): Promise<stri
 
 export async function getImageUrlFromFirestore(firestoreUrl: string): Promise<string | null> {
   if (!firestoreUrl.startsWith("firestore://")) return firestoreUrl;
-  
+  await authReady;
   const imageId = firestoreUrl.replace("firestore://", "");
   const docSnap = await getDoc(doc(db, "exercise_images", imageId));
   
