@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, CheckCircle2, Timer, Trophy, Zap, BarChart3, TrendingUp, TrendingDown, X } from "lucide-react";
 import { ExerciseCard, ExerciseData, HistoricalLog, SetLog } from "./ExerciseCard";
-import { getRoutines, saveRoutines, saveWorkoutSession, CompletedExerciseData } from "@/src/lib/storage";
+import { getRoutines, saveRoutines, syncRoutinesFromCloud, saveWorkoutSession, CompletedExerciseData } from "@/src/lib/storage";
 import { uploadImageToFirestore } from "@/src/lib/firebase";
 import { compressImage, cn } from "@/src/lib/utils";
 
@@ -85,7 +85,10 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const startTime = useRef(new Date());
 
-  useEffect(() => { setRoutines(getRoutines(user)); }, [user]);
+  useEffect(() => {
+    setRoutines(getRoutines(user));
+    syncRoutinesFromCloud(user).then(cloud => { if (cloud) setRoutines(cloud); });
+  }, [user]);
 
   useEffect(() => {
     if (!restTimer) return;

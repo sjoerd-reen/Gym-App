@@ -71,5 +71,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
+
+    // Routines (cross-device sync)
+    match /routines/{userId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
