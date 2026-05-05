@@ -169,6 +169,21 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
     } catch (err) { console.error("Failed to upload image", err); }
   };
 
+  const handleDeleteImage = (exerciseIndex: number) => {
+    const updated = [...routines];
+    const wi = updated.findIndex(w => w.id === workoutId);
+    if (wi !== -1) {
+      const exs = [...(updated[wi].exercises || [])];
+      if (exs[exerciseIndex]) {
+        const { imageUrl: _removed, ...rest } = exs[exerciseIndex];
+        exs[exerciseIndex] = rest;
+        updated[wi] = { ...updated[wi], exercises: exs };
+        setRoutines(updated);
+        saveRoutines(user, updated);
+      }
+    }
+  };
+
   const handleFinishWorkout = () => {
     const stats = calculateSummary(exercises, sessionSets, history, startTime.current);
     const completedExercises: CompletedExerciseData[] = exercises.map((exercise, exerciseIndex) => ({
@@ -245,6 +260,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
             exercise={exercise}
             historicalLogs={history[exercise.id] || []}
             onUploadImage={file => handleUploadImage(index, file)}
+            onDeleteImage={() => handleDeleteImage(index)}
             onSetsChange={sets => setSessionSets(prev => ({ ...prev, [exercise.id]: sets }))}
             onSetCompleted={secs => setRestTimer({ secondsLeft: secs, totalSeconds: secs })}
             onNoteChange={note => setSessionNotes(prev => ({ ...prev, [exercise.id]: note }))}

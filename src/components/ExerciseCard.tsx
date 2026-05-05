@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Camera, Check, Clock, Upload, History,
   Lightbulb, TrendingUp, TrendingDown, Minus, MessageSquare, Info,
+  MoreVertical, Trash2,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { getImageUrlFromFirestore } from "@/src/lib/firebase";
@@ -37,6 +38,7 @@ interface ExerciseCardProps {
   exercise: ExerciseData;
   historicalLogs: HistoricalLog[];
   onUploadImage: (file: File) => Promise<void>;
+  onDeleteImage?: () => void;
   onSetsChange?: (sets: SetLog[]) => void;
   onSetCompleted?: (restSeconds: number) => void;
   onNoteChange?: (note: string) => void;
@@ -61,6 +63,7 @@ export function ExerciseCard({
   exercise,
   historicalLogs,
   onUploadImage,
+  onDeleteImage,
   onSetsChange,
   onSetCompleted,
   onNoteChange,
@@ -76,6 +79,9 @@ export function ExerciseCard({
   const [note, setNote] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [displayImageUrl, setDisplayImageUrl] = useState<string | undefined>(exercise.imageUrl);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -92,6 +98,24 @@ export function ExerciseCard({
   useEffect(() => {
     onSetsChange?.(sets);
   }, [sets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
+
+  const handleConfirmDelete = () => {
+    setShowConfirm(false);
+    setShowMenu(false);
+    setDisplayImageUrl(undefined);
+    onDeleteImage?.();
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -189,6 +213,37 @@ export function ExerciseCard({
           </div>
         </div>
 
+        {/* 3-dot menu (only when image exists) */}
+        {displayImageUrl && (
+          <div ref={menuRef} className="absolute top-3 right-3 z-10">
+            <button
+              onClick={() => setShowMenu(v => !v)}
+              className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute top-10 right-0 bg-[#1a1a26] border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden min-w-[170px]"
+                >
+                  <button
+                    onClick={() => { setShowMenu(false); setShowConfirm(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Afbeelding verwijderen
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         {/* Progress badge */}
         <AnimatePresence>
           {completedCount > 0 && (
@@ -197,7 +252,8 @@ export function ExerciseCard({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               className={cn(
-                "absolute top-3 right-3 text-xs font-bold rounded-full w-9 h-9 flex items-center justify-center shadow-lg",
+                "absolute text-xs font-bold rounded-full w-9 h-9 flex items-center justify-center shadow-lg",
+                displayImageUrl ? "top-3 right-12" : "top-3 right-3",
                 allDone
                   ? "bg-[#c2ff5d] text-[#08080f] shadow-[#c2ff5d]/30"
                   : "bg-white/15 text-white backdrop-blur-sm"
@@ -208,6 +264,50 @@ export function ExerciseCard({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Confirmation modal */}
+      <AnimatePresence>
+        {showConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6"
+            onClick={() => setShowConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              className="bg-[#13131e] border border-white/[0.08] rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5">Afbeelding verwijderen?</h3>
+              <p className="text-sm text-white/40 leading-relaxed mb-6">
+                De referentiefoto van <span className="text-white/60 font-medium">{exercise.name}</span> wordt permanent verwijderd.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 h-11 rounded-2xl bg-white/[0.06] border border-white/[0.06] text-white/60 text-sm font-semibold hover:bg-white/10 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 h-11 rounded-2xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-400 transition-colors shadow-lg shadow-rose-500/20"
+                >
+                  Verwijderen
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="p-5 space-y-4">
         {/* Targets */}
