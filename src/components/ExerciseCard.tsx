@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Camera, Check, Clock, Upload, History,
   Lightbulb, TrendingUp, TrendingDown, Minus, MessageSquare, Info,
-  MoreVertical, Trash2,
+  MoreVertical, Trash2, Pencil,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { getImageUrlFromFirestore } from "@/src/lib/firebase";
@@ -19,6 +19,15 @@ export interface ExerciseData {
   tempo: string;
   rest: string;
   imageUrl?: string;
+}
+
+export interface EditableExerciseFields {
+  name: string;
+  targetSets: number;
+  targetReps: string;
+  tempo: string;
+  rest: string;
+  techniqueNote?: string;
 }
 
 export interface HistoricalLog {
@@ -39,6 +48,7 @@ interface ExerciseCardProps {
   historicalLogs: HistoricalLog[];
   onUploadImage: (file: File) => Promise<void>;
   onDeleteImage?: () => void;
+  onEditExercise?: (updates: EditableExerciseFields) => void;
   onSetsChange?: (sets: SetLog[]) => void;
   onSetCompleted?: (restSeconds: number) => void;
   onNoteChange?: (note: string) => void;
@@ -64,6 +74,7 @@ export function ExerciseCard({
   historicalLogs,
   onUploadImage,
   onDeleteImage,
+  onEditExercise,
   onSetsChange,
   onSetCompleted,
   onNoteChange,
@@ -81,6 +92,15 @@ export function ExerciseCard({
   const [displayImageUrl, setDisplayImageUrl] = useState<string | undefined>(exercise.imageUrl);
   const [showMenu, setShowMenu] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editFields, setEditFields] = useState({
+    name: exercise.name,
+    targetSets: exercise.targetSets.toString(),
+    targetReps: exercise.targetReps,
+    tempo: exercise.tempo,
+    rest: exercise.rest,
+    techniqueNote: exercise.techniqueNote ?? "",
+  });
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,6 +129,31 @@ export function ExerciseCard({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showMenu]);
+
+  const openEdit = () => {
+    setEditFields({
+      name: exercise.name,
+      targetSets: exercise.targetSets.toString(),
+      targetReps: exercise.targetReps,
+      tempo: exercise.tempo,
+      rest: exercise.rest,
+      techniqueNote: exercise.techniqueNote ?? "",
+    });
+    setShowMenu(false);
+    setShowEdit(true);
+  };
+
+  const handleSaveEdit = () => {
+    onEditExercise?.({
+      name: editFields.name.trim() || exercise.name,
+      targetSets: parseInt(editFields.targetSets) || exercise.targetSets,
+      targetReps: editFields.targetReps.trim() || exercise.targetReps,
+      tempo: editFields.tempo.trim() || exercise.tempo,
+      rest: editFields.rest.trim() || exercise.rest,
+      techniqueNote: editFields.techniqueNote.trim() || undefined,
+    });
+    setShowEdit(false);
+  };
 
   const handleConfirmDelete = () => {
     setShowConfirm(false);
@@ -165,6 +210,15 @@ export function ExerciseCard({
   const completedCount = sets.filter(s => s.completed).length;
   const allDone = completedCount === exercise.targetSets;
 
+  const inputClass = cn(
+    "w-full h-11 rounded-xl px-3 text-sm font-semibold outline-none transition-all",
+    "bg-[#0a0a12] border border-white/[0.06] text-white",
+    "focus:border-[#c2ff5d]/30 focus:bg-[#0f0f1a]",
+    "placeholder:text-white/15"
+  );
+
+  const labelClass = "text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1.5 block";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -181,7 +235,7 @@ export function ExerciseCard({
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="flex flex-col items-center gap-3 text-white/20">
+          <div className="relative z-10 flex flex-col items-center gap-3 text-white/20">
             <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
               <Camera className="w-7 h-7" />
             </div>
@@ -198,11 +252,11 @@ export function ExerciseCard({
           </div>
         )}
 
-        {/* Gradient overlay */}
-        <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-[#111118] to-transparent" />
+        {/* Gradient overlay — pointer-events-none so upload button stays clickable */}
+        <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-[#111118] to-transparent pointer-events-none" />
 
-        {/* Exercise name over image */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
+        {/* Exercise name over image — pointer-events-none, text only */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 pb-5 pointer-events-none">
           <div className="flex items-end justify-between">
             <h2 className="text-xl font-bold text-white tracking-tight leading-tight">{exercise.name}</h2>
             {exercise.notes && (
@@ -213,38 +267,50 @@ export function ExerciseCard({
           </div>
         </div>
 
-        {/* 3-dot menu (only when image exists) */}
-        {displayImageUrl && (
-          <div ref={menuRef} className="absolute top-3 right-3 z-10">
-            <button
-              onClick={() => setShowMenu(v => !v)}
-              className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-            <AnimatePresence>
-              {showMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: -4 }}
-                  transition={{ duration: 0.12 }}
-                  className="absolute top-10 right-0 bg-[#1a1a26] border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden min-w-[170px]"
+        {/* 3-dot menu — always visible */}
+        <div ref={menuRef} className="absolute top-3 right-3 z-10">
+          <button
+            onClick={() => setShowMenu(v => !v)}
+            className={cn(
+              "w-8 h-8 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all",
+              displayImageUrl
+                ? "bg-black/40 border-white/10 text-white/70 hover:text-white hover:bg-black/60"
+                : "bg-white/[0.08] border-white/[0.08] text-white/40 hover:text-white/70 hover:bg-white/12"
+            )}
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+          <AnimatePresence>
+            {showMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                transition={{ duration: 0.12 }}
+                className="absolute top-10 right-0 bg-[#1a1a26] border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden min-w-[190px]"
+              >
+                <button
+                  onClick={openEdit}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/[0.06] transition-colors"
                 >
+                  <Pencil className="w-4 h-4" />
+                  Oefening bewerken
+                </button>
+                {displayImageUrl && (
                   <button
                     onClick={() => { setShowMenu(false); setShowConfirm(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-white/[0.05]"
                   >
                     <Trash2 className="w-4 h-4" />
                     Afbeelding verwijderen
                   </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-        {/* Progress badge */}
+        {/* Progress badge — offset to avoid menu button */}
         <AnimatePresence>
           {completedCount > 0 && (
             <motion.div
@@ -252,8 +318,7 @@ export function ExerciseCard({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               className={cn(
-                "absolute text-xs font-bold rounded-full w-9 h-9 flex items-center justify-center shadow-lg",
-                displayImageUrl ? "top-3 right-12" : "top-3 right-3",
+                "absolute top-3 right-12 text-xs font-bold rounded-full w-9 h-9 flex items-center justify-center shadow-lg z-10",
                 allDone
                   ? "bg-[#c2ff5d] text-[#08080f] shadow-[#c2ff5d]/30"
                   : "bg-white/15 text-white backdrop-blur-sm"
@@ -265,7 +330,7 @@ export function ExerciseCard({
         </AnimatePresence>
       </div>
 
-      {/* Confirmation modal */}
+      {/* Delete image confirmation modal */}
       <AnimatePresence>
         {showConfirm && (
           <motion.div
@@ -302,6 +367,125 @@ export function ExerciseCard({
                   className="flex-1 h-11 rounded-2xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-400 transition-colors shadow-lg shadow-rose-500/20"
                 >
                   Verwijderen
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit exercise bottom sheet */}
+      <AnimatePresence>
+        {showEdit && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowEdit(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 280 }}
+              className="bg-[#13131e] border border-white/[0.08] border-b-0 rounded-t-3xl w-full max-w-lg p-6 pb-10 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Handle */}
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-6" />
+
+              <h3 className="text-lg font-bold text-white mb-5">Oefening bewerken</h3>
+
+              <div className="space-y-4">
+                {/* Name */}
+                <div>
+                  <label className={labelClass}>Naam</label>
+                  <input
+                    type="text"
+                    value={editFields.name}
+                    onChange={e => setEditFields(f => ({ ...f, name: e.target.value }))}
+                    className={inputClass}
+                    placeholder="Naam van de oefening"
+                  />
+                </div>
+
+                {/* Sets / Reps / Tempo / Rust — 2×2 grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Sets</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={editFields.targetSets}
+                      onChange={e => setEditFields(f => ({ ...f, targetSets: e.target.value }))}
+                      className={inputClass}
+                      placeholder="3"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Reps</label>
+                    <input
+                      type="text"
+                      value={editFields.targetReps}
+                      onChange={e => setEditFields(f => ({ ...f, targetReps: e.target.value }))}
+                      className={inputClass}
+                      placeholder="8-12"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Tempo</label>
+                    <input
+                      type="text"
+                      value={editFields.tempo}
+                      onChange={e => setEditFields(f => ({ ...f, tempo: e.target.value }))}
+                      className={inputClass}
+                      placeholder="3-0-1"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Rusttijd</label>
+                    <input
+                      type="text"
+                      value={editFields.rest}
+                      onChange={e => setEditFields(f => ({ ...f, rest: e.target.value }))}
+                      className={inputClass}
+                      placeholder="90 sec"
+                    />
+                  </div>
+                </div>
+
+                {/* Technique note */}
+                <div>
+                  <label className={labelClass}>Techniek notitie</label>
+                  <textarea
+                    value={editFields.techniqueNote}
+                    onChange={e => setEditFields(f => ({ ...f, techniqueNote: e.target.value }))}
+                    placeholder="Bijv. schouderbladen naar beneden, neutrale rug..."
+                    rows={2}
+                    className={cn(
+                      "w-full rounded-xl px-3 py-2.5 text-sm font-medium outline-none transition-all resize-none",
+                      "bg-[#0a0a12] border border-white/[0.06] text-white",
+                      "focus:border-[#c2ff5d]/30 focus:bg-[#0f0f1a]",
+                      "placeholder:text-white/15 leading-relaxed"
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowEdit(false)}
+                  className="flex-1 h-12 rounded-2xl bg-white/[0.06] border border-white/[0.06] text-white/60 text-sm font-semibold hover:bg-white/10 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="flex-1 h-12 rounded-2xl bg-[#c2ff5d] text-[#08080f] text-sm font-black hover:bg-[#d4ff72] transition-colors shadow-lg shadow-[#c2ff5d]/20"
+                >
+                  Opslaan
                 </button>
               </div>
             </motion.div>

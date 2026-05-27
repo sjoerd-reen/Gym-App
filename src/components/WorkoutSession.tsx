@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, CheckCircle2, Timer, Trophy, Zap, BarChart3, TrendingUp, TrendingDown, X } from "lucide-react";
-import { ExerciseCard, ExerciseData, HistoricalLog, SetLog } from "./ExerciseCard";
+import { ExerciseCard, ExerciseData, EditableExerciseFields, HistoricalLog, SetLog } from "./ExerciseCard";
 import { getRoutines, saveRoutines, syncRoutinesFromCloud, saveWorkoutSession, CompletedExerciseData } from "@/src/lib/storage";
 import { uploadImageToFirestore } from "@/src/lib/firebase";
 import { compressImage, cn } from "@/src/lib/utils";
@@ -83,6 +83,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
   const [sessionSets, setSessionSets] = useState<Record<string, SetLog[]>>({});
   const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const startTime = useRef(new Date());
 
   useEffect(() => {
@@ -116,9 +117,10 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
       const setsTarget = parseInt(ex.sets_target || "3") || 3;
       const notesRow = ex.sets?.find((s: any) => parseInt(s.set_number) === 5);
       const techniqueNote =
-        notesRow?.history?.map((h: any) => h.weight?.toString())
+        (ex.techniqueNote as string | undefined) ||
+        (notesRow?.history?.map((h: any) => h.weight?.toString())
           .filter((w?: string) => w && isNaN(parseFloat(w.replace(",", "."))))
-          .join(" · ") || undefined;
+          .join(" · ") || undefined);
       const lastSessionNote = ex.sessionNotes
         ? (Object.entries(ex.sessionNotes as Record<string, string>)
             .sort(([a], [b]) => parseInt(b) - parseInt(a))[0]?.[1] ?? undefined)
@@ -182,6 +184,26 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
         saveRoutines(user, updated);
       }
     }
+  };
+
+  const handleEditExercise = (exerciseIndex: number, updates: EditableExerciseFields) => {
+    const updated = [...routines];
+    const wi = updated.findIndex(w => w.id === workoutId);
+    if (wi === -1) return;
+    const exs = [...(updated[wi].exercises || [])];
+    if (!exs[exerciseIndex]) return;
+    exs[exerciseIndex] = {
+      ...exs[exerciseIndex],
+      name: updates.name,
+      sets_target: updates.targetSets.toString(),
+      reps_target: updates.targetReps,
+      tempo: updates.tempo,
+      rest: updates.rest,
+      techniqueNote: updates.techniqueNote ?? "",
+    };
+    updated[wi] = { ...updated[wi], exercises: exs };
+    setRoutines(updated);
+    saveRoutines(user, updated);
   };
 
   const handleFinishWorkout = () => {
@@ -261,6 +283,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
             historicalLogs={history[exercise.id] || []}
             onUploadImage={file => handleUploadImage(index, file)}
             onDeleteImage={() => handleDeleteImage(index)}
+            onEditExercise={updates => handleEditExercise(index, updates)}
             onSetsChange={sets => setSessionSets(prev => ({ ...prev, [exercise.id]: sets }))}
             onSetCompleted={secs => setRestTimer({ secondsLeft: secs, totalSeconds: secs })}
             onNoteChange={note => setSessionNotes(prev => ({ ...prev, [exercise.id]: note }))}
@@ -363,16 +386,63 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
 
       {/* Finish button */}
       <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-10 bg-gradient-to-t from-[#08080f] via-[#08080f]/95 to-transparent pointer-events-none z-10">
-        <div className="max-w-2xl mx-auto pointer-events-auto">
+        <div className="max-w-2xl mx-auto pointer-events-auto flex justify-center">
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={handleFinishWorkout}
-            className="w-full bg-[#c2ff5d] text-[#08080f] font-black text-base py-5 rounded-2xl shadow-xl shadow-[#c2ff5d]/15 hover:bg-[#d4ff72] transition-colors"
+            onClick={() => setShowFinishConfirm(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-white/[0.07] border border-white/[0.08] text-white/50 rounded-full text-sm font-semibold hover:bg-white/10 hover:text-white/70 transition-colors"
           >
-            Workout Afronden
+            <CheckCircle2 className="w-4 h-4" />
+            Workout afronden
           </motion.button>
         </div>
       </div>
+
+      {/* Finish confirmation modal */}
+      <AnimatePresence>
+        {showFinishConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6"
+            onClick={() => setShowFinishConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              className="bg-[#13131e] border border-white/[0.08] rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-[#c2ff5d]/10 border border-[#c2ff5d]/20 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-5 h-5 text-[#c2ff5d]" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5">Workout afronden?</h3>
+              <p className="text-sm text-white/40 leading-relaxed mb-6">
+                {completedSetCount < totalSetCount
+                  ? `Je hebt nog ${totalSetCount - completedSetCount} sets niet voltooid. Wil je toch afronden?`
+                  : "Goed werk! Wil je de workout opslaan?"}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowFinishConfirm(false)}
+                  className="flex-1 h-11 rounded-2xl bg-white/[0.06] border border-white/[0.06] text-white/60 text-sm font-semibold hover:bg-white/10 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={() => { setShowFinishConfirm(false); handleFinishWorkout(); }}
+                  className="flex-1 h-11 rounded-2xl bg-[#c2ff5d] text-[#08080f] text-sm font-black hover:bg-[#d4ff72] transition-colors shadow-lg shadow-[#c2ff5d]/20"
+                >
+                  Afronden
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
