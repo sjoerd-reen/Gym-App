@@ -250,6 +250,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05771201-Lever-Chest-Press_Chest_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }, { set_number: '4' }],
 			},
 			{
@@ -259,6 +260,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05761201-Lever-Chest-Press-(plate-loaded)_Chest_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }, { set_number: '4' }],
 			},
 			{
@@ -268,6 +270,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/01781201-Cable-Lateral-Raise_shoulder_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -277,6 +280,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05921201-Lever-Preacher-Curl_Upper-Arms_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -286,6 +290,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '180',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/00431201-Barbell-Full-Squat_Thighs_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }, { set_number: '4' }],
 			},
 			{
@@ -295,6 +300,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/22651201-Lever-Seated-Row-(version-2)_Back_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -304,6 +310,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05961201-Lever-Seated-Fly_Chest_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -313,6 +320,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/02011201-Cable-Pushdown_Upper-Arms_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -322,6 +330,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/22671201-Lever-Seated-Leg-Press_Thighs_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }],
 			},
 			{
@@ -331,6 +340,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/01751201-Cable-Kneeling-Crunch_Waist_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 		],
@@ -345,6 +355,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/08411201-Weighted-Pull-Up_Back_thumbnail_@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }, { set_number: '4' }],
 			},
 			{
@@ -354,6 +365,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/06021201-Lever-Seated-Reverse-Fly_Shoulders_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -363,6 +375,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/07571201-Smith-Incline-Bench-Press_Chest_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }],
 			},
 			{
@@ -372,6 +385,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/01941201-Cable-Overhead-Triceps-Extension-(rope-attachment)_Upper-Arms-FIX_thumbnail_@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -381,6 +395,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/22851201-Lever-Pullover-(plate-loaded)_Back__thumbnail_@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -390,6 +405,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/48381201-Cable-Unilateral-Bicep-Curl_Upper-Arms_thumbnail_@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -399,6 +415,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05991201-Lever-Seated-Leg-Curl_Thighs_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }],
 			},
 			{
@@ -408,6 +425,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/04631201-Front-Plank-m_waist_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }],
 			},
 			{
@@ -417,6 +435,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/07381201-Sled-45-Calf-Press_Calves_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }, { set_number: '4' }, { set_number: '5' }, { set_number: '6' }, { set_number: '7' }],
 			},
 		],
@@ -431,6 +450,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/07431201-Sled-Hack-Squat_Hips_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }],
 			},
 			{
@@ -440,6 +460,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/07381201-Sled-45-Calf-Press_Calves_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -449,6 +470,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/04261201-Dumbbell-Standing-Overhead-Press_shoulder_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -458,6 +480,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/01651201-Cable-Hammer-Curl-(with-rope)-(male)_Forearms_thumbnail_@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -467,6 +490,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/14591201-Dumbbell-Romanian-Deadlift_Hips_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }, { set_number: '3' }],
 			},
 			{
@@ -476,6 +500,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '90',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/04101201-Dumbbell-Single-Leg-Split-Squat_Thighs_thumbnail_@3x.jpg',
 				sets: [{ set_number: '1' }, { set_number: '2' }],
 			},
 			{
@@ -485,6 +510,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05981201-Lever-Seated-Hip-Adduction_Thighs_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }],
 			},
 			{
@@ -494,6 +520,7 @@ export const SJOERD_DATA = [
 				tempo: '-',
 				rest: '150',
 				notes: '',
+				imageUrl: 'https://pump-app.s3.eu-west-2.amazonaws.com/exercise-thumbnails/05971201-Lever-Seated-Hip-Abduction_Hips_thumbnail@3x.jpg',
 				sets: [{ set_number: '1' }],
 			},
 		],

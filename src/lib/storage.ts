@@ -41,8 +41,32 @@ export function getRoutines(user: "Sjoerd" | "Nikita"): Routine[] {
     return initialized;
   }
 
-  const existing: Routine[] = JSON.parse(stored);
+  let existing: Routine[] = JSON.parse(stored);
   const existingNames = new Set(existing.map(r => r.workout_name));
+
+  // Build imageUrl lookup from TS defaults: workoutName -> exerciseName -> imageUrl
+  const imageDefaults: Record<string, Record<string, string>> = {};
+  for (const workout of defaultData) {
+    imageDefaults[workout.workout_name] = {};
+    for (const ex of (workout as any).exercises ?? []) {
+      if (ex.imageUrl) imageDefaults[workout.workout_name][ex.name] = ex.imageUrl;
+    }
+  }
+
+  // Patch exercises missing an imageUrl with the default from TS data
+  let patched = false;
+  existing = existing.map(routine => {
+    const defaults = imageDefaults[routine.workout_name];
+    if (!defaults) return routine;
+    const updatedExercises = (routine.exercises ?? []).map((ex: any) => {
+      if (!ex.imageUrl && defaults[ex.name]) {
+        patched = true;
+        return { ...ex, imageUrl: defaults[ex.name] };
+      }
+      return ex;
+    });
+    return patched ? { ...routine, exercises: updatedExercises } : routine;
+  });
 
   // Append any routines from the TS data that aren't in localStorage yet
   const newRoutines = defaultData
@@ -53,7 +77,7 @@ export function getRoutines(user: "Sjoerd" | "Nikita"): Routine[] {
       isArchived: false,
     }));
 
-  if (newRoutines.length === 0) return existing;
+  if (newRoutines.length === 0 && !patched) return existing;
 
   const merged = [...existing, ...newRoutines];
   localStorage.setItem(key, JSON.stringify(merged));
