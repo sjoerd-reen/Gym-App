@@ -231,7 +231,12 @@ export function ExerciseCard({
           <img
             src={displayImageUrl}
             alt={exercise.name}
-            className="w-full h-full object-cover"
+            className={cn(
+              "w-full h-full",
+              displayImageUrl.startsWith("https://pump-app")
+                ? "object-contain p-4"
+                : "object-cover"
+            )}
             referrerPolicy="no-referrer"
           />
         ) : (
