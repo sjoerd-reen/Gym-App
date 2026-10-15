@@ -704,38 +704,34 @@ export function ExerciseCard({
               <span className="italic leading-relaxed">{exercise.lastSessionNote}</span>
             </div>
           )}
-          <div className="relative">
-            <textarea
-              value={note}
-              onChange={e => {
-                setNote(e.target.value);
-                onNoteChange?.(e.target.value);
+          <textarea
+            value={note}
+            onChange={e => {
+              setNote(e.target.value);
+              onNoteChange?.(e.target.value);
+            }}
+            placeholder={exercise.lastSessionNote ? "Nieuwe notitie..." : "Notitie (bijv. last van schouder)..."}
+            rows={1}
+            className="w-full bg-[#0a0a12] border border-white/[0.05] text-white/50 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-white/10 resize-none placeholder:text-white/15 leading-relaxed transition-colors"
+            style={{ minHeight: "2.5rem" }}
+            onInput={e => {
+              const el = e.currentTarget;
+              el.style.height = "auto";
+              el.style.height = el.scrollHeight + "px";
+            }}
+          />
+          {note.trim() && onSaveNote && (
+            <button
+              onClick={() => {
+                onSaveNote(note.trim());
+                setNote("");
+                onNoteChange?.("");
               }}
-              onBlur={() => {
-                if (note.trim()) onSaveNote?.(note.trim());
-              }}
-              placeholder={exercise.lastSessionNote ? "Nieuwe notitie..." : "Notitie (bijv. last van schouder)..."}
-              rows={1}
-              className="w-full bg-[#0a0a12] border border-white/[0.05] text-white/50 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-white/10 resize-none placeholder:text-white/15 leading-relaxed transition-colors"
-              style={{ minHeight: "2.5rem" }}
-              onInput={e => {
-                const el = e.currentTarget;
-                el.style.height = "auto";
-                el.style.height = el.scrollHeight + "px";
-              }}
-            />
-            {note.trim() && onSaveNote && (
-              <button
-                onMouseDown={e => {
-                  e.preventDefault();
-                  onSaveNote(note.trim());
-                }}
-                className="absolute right-2 bottom-2 px-2.5 py-1 bg-[#c2ff5d]/15 border border-[#c2ff5d]/20 text-[#c2ff5d] text-xs font-semibold rounded-lg hover:bg-[#c2ff5d]/25 transition-colors"
-              >
-                Opslaan
-              </button>
-            )}
-          </div>
+              className="mt-2 w-full h-10 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white/50 text-sm font-semibold hover:bg-white/10 hover:text-white/70 transition-colors"
+            >
+              Opslaan
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
