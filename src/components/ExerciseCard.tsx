@@ -702,7 +702,7 @@ export function ExerciseCard({
             <div className="flex items-start gap-2.5 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3.5 py-3">
               <MessageSquare className="w-3.5 h-3.5 shrink-0 mt-0.5 text-white/20" />
               <div>
-                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Vorige sessie</p>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Notities</p>
                 <p className="text-sm text-white/35 leading-snug italic">{exercise.lastSessionNote}</p>
               </div>
             </div>
