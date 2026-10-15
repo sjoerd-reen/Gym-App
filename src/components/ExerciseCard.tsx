@@ -49,9 +49,11 @@ interface ExerciseCardProps {
   onUploadImage: (file: File) => Promise<void>;
   onDeleteImage?: () => void;
   onEditExercise?: (updates: EditableExerciseFields) => void;
+  onDeleteExercise?: () => void;
   onSetsChange?: (sets: SetLog[]) => void;
   onSetCompleted?: (restSeconds: number) => void;
   onNoteChange?: (note: string) => void;
+  onSaveNote?: (note: string) => void;
 }
 
 function parseRestSeconds(rest: string): number {
@@ -75,9 +77,11 @@ export function ExerciseCard({
   onUploadImage,
   onDeleteImage,
   onEditExercise,
+  onDeleteExercise,
   onSetsChange,
   onSetCompleted,
   onNoteChange,
+  onSaveNote,
 }: ExerciseCardProps) {
   const [sets, setSets] = useState<SetLog[]>(
     Array.from({ length: exercise.targetSets }, (_, i) => ({
@@ -92,6 +96,7 @@ export function ExerciseCard({
   const [displayImageUrl, setDisplayImageUrl] = useState<string | undefined>(exercise.imageUrl);
   const [showMenu, setShowMenu] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDeleteExerciseConfirm, setShowDeleteExerciseConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editFields, setEditFields] = useState({
     name: exercise.name,
@@ -304,10 +309,19 @@ export function ExerciseCard({
                 {displayImageUrl && (
                   <button
                     onClick={() => { setShowMenu(false); setShowConfirm(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-white/[0.05]"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/50 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]"
                   >
                     <Trash2 className="w-4 h-4" />
                     Afbeelding verwijderen
+                  </button>
+                )}
+                {onDeleteExercise && (
+                  <button
+                    onClick={() => { setShowMenu(false); setShowDeleteExerciseConfirm(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-white/[0.05]"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Oefening verwijderen
                   </button>
                 )}
               </motion.div>
@@ -369,6 +383,50 @@ export function ExerciseCard({
                 </button>
                 <button
                   onClick={handleConfirmDelete}
+                  className="flex-1 h-11 rounded-2xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-400 transition-colors shadow-lg shadow-rose-500/20"
+                >
+                  Verwijderen
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete exercise confirmation modal */}
+      <AnimatePresence>
+        {showDeleteExerciseConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6"
+            onClick={() => setShowDeleteExerciseConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              className="bg-[#13131e] border border-white/[0.08] rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5">Oefening verwijderen?</h3>
+              <p className="text-sm text-white/40 leading-relaxed mb-6">
+                <span className="text-white/60 font-medium">{exercise.name}</span> wordt permanent verwijderd uit dit schema. Trainingshistorie blijft bewaard.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteExerciseConfirm(false)}
+                  className="flex-1 h-11 rounded-2xl bg-white/[0.06] border border-white/[0.06] text-white/60 text-sm font-semibold hover:bg-white/10 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={() => { setShowDeleteExerciseConfirm(false); onDeleteExercise?.(); }}
                   className="flex-1 h-11 rounded-2xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-400 transition-colors shadow-lg shadow-rose-500/20"
                 >
                   Verwijderen
@@ -646,22 +704,38 @@ export function ExerciseCard({
               <span className="italic leading-relaxed">{exercise.lastSessionNote}</span>
             </div>
           )}
-          <textarea
-            value={note}
-            onChange={e => {
-              setNote(e.target.value);
-              onNoteChange?.(e.target.value);
-            }}
-            placeholder={exercise.lastSessionNote ? "Nieuwe notitie..." : "Notitie (bijv. last van schouder)..."}
-            rows={1}
-            className="w-full bg-[#0a0a12] border border-white/[0.05] text-white/50 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-white/10 resize-none placeholder:text-white/15 leading-relaxed transition-colors"
-            style={{ minHeight: "2.5rem" }}
-            onInput={e => {
-              const el = e.currentTarget;
-              el.style.height = "auto";
-              el.style.height = el.scrollHeight + "px";
-            }}
-          />
+          <div className="relative">
+            <textarea
+              value={note}
+              onChange={e => {
+                setNote(e.target.value);
+                onNoteChange?.(e.target.value);
+              }}
+              onBlur={() => {
+                if (note.trim()) onSaveNote?.(note.trim());
+              }}
+              placeholder={exercise.lastSessionNote ? "Nieuwe notitie..." : "Notitie (bijv. last van schouder)..."}
+              rows={1}
+              className="w-full bg-[#0a0a12] border border-white/[0.05] text-white/50 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-white/10 resize-none placeholder:text-white/15 leading-relaxed transition-colors"
+              style={{ minHeight: "2.5rem" }}
+              onInput={e => {
+                const el = e.currentTarget;
+                el.style.height = "auto";
+                el.style.height = el.scrollHeight + "px";
+              }}
+            />
+            {note.trim() && onSaveNote && (
+              <button
+                onMouseDown={e => {
+                  e.preventDefault();
+                  onSaveNote(note.trim());
+                }}
+                className="absolute right-2 bottom-2 px-2.5 py-1 bg-[#c2ff5d]/15 border border-[#c2ff5d]/20 text-[#c2ff5d] text-xs font-semibold rounded-lg hover:bg-[#c2ff5d]/25 transition-colors"
+              >
+                Opslaan
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

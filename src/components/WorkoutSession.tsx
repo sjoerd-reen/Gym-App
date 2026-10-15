@@ -186,6 +186,41 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
     }
   };
 
+  const handleDeleteExercise = (exerciseIndex: number) => {
+    const updated = [...routines];
+    const wi = updated.findIndex(w => w.id === workoutId);
+    if (wi === -1) return;
+    const exs = [...(updated[wi].exercises || [])];
+    exs.splice(exerciseIndex, 1);
+    updated[wi] = { ...updated[wi], exercises: exs };
+    setRoutines(updated);
+    saveRoutines(user, updated);
+  };
+
+  const handleSaveNote = (exerciseIndex: number, note: string) => {
+    const updated = [...routines];
+    const wi = updated.findIndex(w => w.id === workoutId);
+    if (wi === -1) return;
+    const exs = [...(updated[wi].exercises || [])];
+    if (!exs[exerciseIndex]) return;
+    const existing = exs[exerciseIndex];
+    const maxTraining = (() => {
+      let max = 0;
+      existing.sets?.forEach((s: any) => s.history?.forEach((h: any) => {
+        if (typeof h.training === "number" && h.training > max) max = h.training;
+      }));
+      return max;
+    })();
+    const noteKey = maxTraining + 1;
+    exs[exerciseIndex] = {
+      ...existing,
+      sessionNotes: { ...(existing.sessionNotes || {}), [noteKey]: note },
+    };
+    updated[wi] = { ...updated[wi], exercises: exs };
+    setRoutines(updated);
+    saveRoutines(user, updated);
+  };
+
   const handleEditExercise = (exerciseIndex: number, updates: EditableExerciseFields) => {
     const updated = [...routines];
     const wi = updated.findIndex(w => w.id === workoutId);
@@ -284,9 +319,11 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
             onUploadImage={file => handleUploadImage(index, file)}
             onDeleteImage={() => handleDeleteImage(index)}
             onEditExercise={updates => handleEditExercise(index, updates)}
+            onDeleteExercise={() => handleDeleteExercise(index)}
             onSetsChange={sets => setSessionSets(prev => ({ ...prev, [exercise.id]: sets }))}
             onSetCompleted={secs => setRestTimer({ secondsLeft: secs, totalSeconds: secs })}
             onNoteChange={note => setSessionNotes(prev => ({ ...prev, [exercise.id]: note }))}
+            onSaveNote={note => handleSaveNote(index, note)}
           />
         ))}
       </main>
