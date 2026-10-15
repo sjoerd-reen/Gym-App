@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Camera, Check, Clock, Upload, History,
   Lightbulb, TrendingUp, TrendingDown, Minus, MessageSquare, Info,
-  MoreVertical, Trash2, Pencil,
+  MoreVertical, Trash2, Pencil, Send,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { getImageUrlFromFirestore } from "@/src/lib/firebase";
@@ -699,39 +699,50 @@ export function ExerciseCard({
         {/* Session note */}
         <div className="pt-1 border-t border-white/[0.05] space-y-2">
           {exercise.lastSessionNote && (
-            <div className="flex items-start gap-2 text-white/30 text-xs">
-              <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span className="italic leading-relaxed">{exercise.lastSessionNote}</span>
+            <div className="flex items-start gap-2.5 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3.5 py-3">
+              <MessageSquare className="w-3.5 h-3.5 shrink-0 mt-0.5 text-white/20" />
+              <div>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Vorige sessie</p>
+                <p className="text-sm text-white/35 leading-snug italic">{exercise.lastSessionNote}</p>
+              </div>
             </div>
           )}
-          <textarea
-            value={note}
-            onChange={e => {
-              setNote(e.target.value);
-              onNoteChange?.(e.target.value);
-            }}
-            placeholder={exercise.lastSessionNote ? "Nieuwe notitie..." : "Notitie (bijv. last van schouder)..."}
-            rows={1}
-            className="w-full bg-[#0a0a12] border border-white/[0.05] text-white/50 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-white/10 resize-none placeholder:text-white/15 leading-relaxed transition-colors"
-            style={{ minHeight: "2.5rem" }}
-            onInput={e => {
-              const el = e.currentTarget;
-              el.style.height = "auto";
-              el.style.height = el.scrollHeight + "px";
-            }}
-          />
-          {note.trim() && onSaveNote && (
-            <button
-              onClick={() => {
-                onSaveNote(note.trim());
-                setNote("");
-                onNoteChange?.("");
+          <div className="flex items-end gap-2">
+            <textarea
+              value={note}
+              onChange={e => {
+                setNote(e.target.value);
+                onNoteChange?.(e.target.value);
               }}
-              className="mt-2 w-full h-10 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white/50 text-sm font-semibold hover:bg-white/10 hover:text-white/70 transition-colors"
-            >
-              Opslaan
-            </button>
-          )}
+              placeholder="Notitie toevoegen..."
+              rows={1}
+              className="flex-1 bg-[#0a0a12] border border-white/[0.07] text-white/60 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-white/15 resize-none placeholder:text-white/20 leading-relaxed transition-colors"
+              style={{ minHeight: "2.75rem" }}
+              onInput={e => {
+                const el = e.currentTarget;
+                el.style.height = "auto";
+                el.style.height = el.scrollHeight + "px";
+              }}
+            />
+            <AnimatePresence>
+              {note.trim() && onSaveNote && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.12 }}
+                  onClick={() => {
+                    onSaveNote(note.trim());
+                    setNote("");
+                    onNoteChange?.("");
+                  }}
+                  className="w-11 h-11 rounded-xl bg-[#c2ff5d] flex items-center justify-center shrink-0 shadow-lg shadow-[#c2ff5d]/20 active:scale-95 transition-transform"
+                >
+                  <Send className="w-4 h-4 text-[#08080f]" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </motion.div>
