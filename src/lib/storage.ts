@@ -22,20 +22,43 @@ export interface CompletedExerciseData {
   note?: string;
 }
 
+function makeId(name: string, index: number): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + index;
+}
+
 export function getRoutines(user: "Sjoerd" | "Nikita"): Routine[] {
   const key = `routines_${user}`;
   const stored = localStorage.getItem(key);
-  if (stored) return JSON.parse(stored);
-
   const defaultData = user === "Sjoerd" ? SJOERD_DATA : NIKITA_DATA;
-  const initialized = defaultData.map((d, i) => ({
-    ...d,
-    id: d.workout_name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + i,
-    isArchived: false,
-  }));
 
-  localStorage.setItem(key, JSON.stringify(initialized));
-  return initialized;
+  if (!stored) {
+    const initialized = defaultData.map((d, i) => ({
+      ...d,
+      id: makeId(d.workout_name, i),
+      isArchived: false,
+    }));
+    localStorage.setItem(key, JSON.stringify(initialized));
+    return initialized;
+  }
+
+  const existing: Routine[] = JSON.parse(stored);
+  const existingNames = new Set(existing.map(r => r.workout_name));
+
+  // Append any routines from the TS data that aren't in localStorage yet
+  const newRoutines = defaultData
+    .filter(d => !existingNames.has(d.workout_name))
+    .map((d, i) => ({
+      ...d,
+      id: makeId(d.workout_name, existing.length + i),
+      isArchived: false,
+    }));
+
+  if (newRoutines.length === 0) return existing;
+
+  const merged = [...existing, ...newRoutines];
+  localStorage.setItem(key, JSON.stringify(merged));
+  saveRoutinesToFirestore(user, merged).catch(console.error);
+  return merged;
 }
 
 export function saveRoutines(user: "Sjoerd" | "Nikita", routines: Routine[]) {
