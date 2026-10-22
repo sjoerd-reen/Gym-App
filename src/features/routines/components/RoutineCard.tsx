@@ -43,7 +43,7 @@ export function RoutineCard({ routine, index, inProgress, onStart, onHistory, on
         routine.isArchived && "opacity-70"
       )}
     >
-      <button onClick={onStart} className="absolute inset-0 rounded-[28px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20" aria-label={`Start ${routine.workout_name}`} />
+      <button onClick={onStart} className="absolute inset-0 rounded-[28px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20" aria-label={`Open ${routine.workout_name}`} tabIndex={-1} />
       <div className={cn(
         "pointer-events-none w-12 h-12 rounded-[18px] bg-gradient-to-br text-white flex items-center justify-center shrink-0",
         routineTint(index),
@@ -79,12 +79,17 @@ export function RoutineCard({ routine, index, inProgress, onStart, onHistory, on
       <div className="relative flex items-center gap-0.5 shrink-0">
         {hasMenu && <CardMenu routine={routine} onHistory={onHistory} onToggleArchive={onToggleArchive} />}
         {!routine.isArchived && (
-          <span className={cn(
-            "pointer-events-none w-11 h-11 rounded-full flex items-center justify-center",
-            inProgress ? "bg-success text-white" : "bg-accent-soft text-accent"
-          )}>
+          <button
+            onClick={onStart}
+            aria-label={inProgress ? `Ga verder met ${routine.workout_name}` : `Start ${routine.workout_name}`}
+            className={cn(
+              "w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-90",
+              "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20",
+              inProgress ? "bg-success text-white" : "bg-accent-soft text-accent"
+            )}
+          >
             <Play className="w-[18px] h-[18px] translate-x-px" fill="currentColor" />
-          </span>
+          </button>
         )}
       </div>
     </motion.div>
