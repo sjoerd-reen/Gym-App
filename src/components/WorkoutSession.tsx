@@ -1,8 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, CheckCircle2, Timer, Trophy, Zap, BarChart3, TrendingUp, TrendingDown, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Timer, Trophy, Zap, BarChart3, TrendingUp, TrendingDown, X, History } from "lucide-react";
 import { ExerciseCard, ExerciseData, EditableExerciseFields, HistoricalLog, SetLog } from "./ExerciseCard";
-import { getRoutines, saveRoutines, syncRoutinesFromCloud, saveWorkoutSession, CompletedExerciseData } from "@/src/lib/storage";
+import { SessionHistory } from "./SessionHistory";
+import {
+  Routine, getRoutines, saveRoutines, syncRoutinesFromCloud, saveWorkoutSession, CompletedExerciseData, CompletedSetData,
+  activeExercises, getNextTrainingNumber, getDraft, saveDraft, clearDraft, parseWeight, parseReps,
+} from "@/src/lib/storage";
 import { uploadImageToFirestore } from "@/src/lib/firebase";
 import { compressImage, cn } from "@/src/lib/utils";
 
@@ -13,8 +17,8 @@ interface WorkoutSessionProps {
 }
 
 interface RestTimer {
-  secondsLeft: number;
-  totalSeconds: number;
+  endsAt: number;
+  total: number;
 }
 
 interface WorkoutSummary {
@@ -25,33 +29,13 @@ interface WorkoutSummary {
   volumeChangePct: number | null;
 }
 
-function parseRestSeconds(rest: string): number {
-  const numbers = rest.match(/\d+/g)?.map(Number) ?? [];
-  return numbers.length === 0 ? 90 : Math.max(...numbers);
-}
-
-function parseWeight(raw: unknown): number | null {
-  if (raw === null || raw === undefined || raw === "") return null;
-  const str = raw.toString().replace(",", ".").trim();
-  const match = str.match(/^[\d.]+/);
-  if (!match) return null;
-  const value = parseFloat(match[0]);
-  return isNaN(value) ? null : value;
-}
-
-function parseReps(raw: unknown): number | null {
-  if (raw === null || raw === undefined || raw === "") return null;
-  const value = parseInt(raw.toString().trim());
-  return isNaN(value) || value === 0 ? null : value;
-}
-
 function calculateSummary(
   exercises: ExerciseData[],
   sessionSets: Record<string, SetLog[]>,
   history: Record<string, HistoricalLog[]>,
-  startTime: Date
+  startedAt: number
 ): WorkoutSummary {
-  const durationMinutes = Math.max(1, Math.round((Date.now() - startTime.getTime()) / 60000));
+  const durationMinutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
   let totalVolume = 0, completedSets = 0, currentVolume = 0, prevVolume = 0;
   const prs: { name: string; weight: number; prev: number }[] = [];
 
@@ -76,34 +60,89 @@ function calculateSummary(
   return { durationMinutes, totalVolume, completedSets, prs, volumeChangePct };
 }
 
+function hasDraftData(sets: Record<string, SetLog[]>, notes: Record<string, string>): boolean {
+  return Object.values(sets).some(list => list.some(s => s.weight !== "" || s.reps !== ""))
+    || Object.values(notes).some(n => n.trim() !== "");
+}
+
 export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps) {
+  const [initialDraft] = useState(() => getDraft(user, workoutId));
   const [phase, setPhase] = useState<"active" | "summary">("active");
   const [routines, setRoutines] = useState(() => getRoutines(user));
-  const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
-  const [sessionSets, setSessionSets] = useState<Record<string, SetLog[]>>({});
-  const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
+  const routinesRef = useRef(routines);
+  routinesRef.current = routines;
+  const [restTimer, setRestTimer] = useState<RestTimer | null>(() =>
+    initialDraft?.rest && initialDraft.rest.endsAt > Date.now() ? initialDraft.rest : null
+  );
+  const [now, setNow] = useState(() => Date.now());
+  const [sessionSets, setSessionSets] = useState<Record<string, SetLog[]>>(() => {
+    const out: Record<string, SetLog[]> = {};
+    Object.entries(initialDraft?.sets ?? {}).forEach(([uid, sets]: [string, CompletedSetData[]]) => {
+      out[uid] = sets.map((s, i) => ({ setNumber: i + 1, ...s }));
+    });
+    return out;
+  });
+  const [sessionNotes, setSessionNotes] = useState<Record<string, string>>(() => initialDraft?.notes ?? {});
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
-  const startTime = useRef(new Date());
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const startedAt = useRef(initialDraft?.startedAt ?? Date.now());
+  const finished = useRef(false);
 
   useEffect(() => {
-    setRoutines(getRoutines(user));
     syncRoutinesFromCloud(user).then(cloud => { if (cloud) setRoutines(cloud); });
   }, [user]);
 
+  // Persist in-progress values so closing the app never loses a workout
+  useEffect(() => {
+    if (finished.current) return;
+    if (!hasDraftData(sessionSets, sessionNotes)) {
+      clearDraft(user, workoutId);
+      return;
+    }
+    saveDraft(user, workoutId, {
+      startedAt: startedAt.current,
+      updatedAt: Date.now(),
+      sets: Object.fromEntries(Object.entries(sessionSets).map(([uid, sets]: [string, SetLog[]]) => [
+        uid, sets.map(({ weight, reps, completed }) => ({ weight, reps, completed })),
+      ])),
+      notes: sessionNotes,
+      rest: restTimer,
+    });
+  }, [sessionSets, sessionNotes, restTimer, user, workoutId]);
+
+  // Timer is based on a fixed end time, so it keeps counting while the app is in the background
   useEffect(() => {
     if (!restTimer) return;
-    if (restTimer.secondsLeft <= 0) {
-      navigator.vibrate?.([150, 100, 150]);
-      const t = setTimeout(() => setRestTimer(null), 1800);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(
-      () => setRestTimer(prev => prev ? { ...prev, secondsLeft: prev.secondsLeft - 1 } : null),
-      1000
-    );
-    return () => clearTimeout(t);
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = setInterval(tick, 250);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [restTimer]);
+
+  const secondsLeft = restTimer ? Math.max(0, Math.ceil((restTimer.endsAt - now) / 1000)) : 0;
+  const timerDone = restTimer !== null && secondsLeft === 0;
+
+  useEffect(() => {
+    if (!restTimer || !timerDone) return;
+    if (now - restTimer.endsAt > 3000) {
+      setRestTimer(null);
+      return;
+    }
+    navigator.vibrate?.([150, 100, 150]);
+    const t = setTimeout(() => setRestTimer(null), 1800);
+    return () => clearTimeout(t);
+  }, [timerDone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startRest = (seconds: number) => {
+    setNow(Date.now());
+    setRestTimer({ endsAt: Date.now() + seconds * 1000, total: seconds });
+  };
 
   const workoutData = useMemo(() => routines.find(w => w.id === workoutId), [workoutId, routines]);
 
@@ -112,8 +151,8 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
     const parsedExercises: ExerciseData[] = [];
     const parsedHistory: Record<string, HistoricalLog[]> = {};
 
-    workoutData.exercises?.forEach((ex, index) => {
-      const exId = `ex-${index}`;
+    activeExercises(workoutData).forEach((ex: any) => {
+      const exId: string = ex.uid;
       const setsTarget = parseInt(ex.sets_target || "3") || 3;
       const notesRow = ex.sets?.find((s: any) => parseInt(s.set_number) === 5);
       const techniqueNote =
@@ -129,7 +168,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
       parsedExercises.push({
         id: exId, name: ex.name, targetSets: setsTarget,
         targetReps: ex.reps_target || "-", tempo: ex.tempo || "-", rest: ex.rest || "-",
-        notes: ex.notes || undefined, techniqueNote, lastSessionNote, imageUrl: ex.imageUrl,
+        notes: ex.notes || undefined, techniqueNote, lastSessionNote, imageUrl: ex.imageUrl ?? undefined,
       });
 
       const realSets = (ex.sets || []).filter(
@@ -153,104 +192,89 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
     return { exercises: parsedExercises, history: parsedHistory };
   }, [workoutData]);
 
-  const handleUploadImage = async (exerciseIndex: number, file: File) => {
+  const updateWorkout = (fn: (routine: Routine) => Routine) => {
+    const updated = routinesRef.current.map(r => (r.id === workoutId ? fn(r) : r));
+    routinesRef.current = updated;
+    setRoutines(updated);
+    saveRoutines(user, updated);
+  };
+
+  const updateExercise = (uid: string, fn: (ex: any) => any) => {
+    updateWorkout(r => ({ ...r, exercises: r.exercises.map((ex: any) => (ex.uid === uid ? fn(ex) : ex)) }));
+  };
+
+  const handleUploadImage = async (uid: string, file: File) => {
     try {
       const compressed = await compressImage(file);
       const url = await uploadImageToFirestore(compressed);
-      const updated = [...routines];
-      const wi = updated.findIndex(w => w.id === workoutId);
-      if (wi !== -1) {
-        const exs = [...(updated[wi].exercises || [])];
-        if (exs[exerciseIndex]) {
-          exs[exerciseIndex] = { ...exs[exerciseIndex], imageUrl: url };
-          updated[wi] = { ...updated[wi], exercises: exs };
-          setRoutines(updated);
-          saveRoutines(user, updated);
-        }
-      }
+      updateExercise(uid, ex => ({ ...ex, imageUrl: url }));
     } catch (err) { console.error("Failed to upload image", err); }
   };
 
-  const handleDeleteImage = (exerciseIndex: number) => {
-    const updated = [...routines];
-    const wi = updated.findIndex(w => w.id === workoutId);
-    if (wi !== -1) {
-      const exs = [...(updated[wi].exercises || [])];
-      if (exs[exerciseIndex]) {
-        const { imageUrl: _removed, ...rest } = exs[exerciseIndex];
-        exs[exerciseIndex] = rest;
-        updated[wi] = { ...updated[wi], exercises: exs };
-        setRoutines(updated);
-        saveRoutines(user, updated);
-      }
-    }
+  const handleDeleteImage = (uid: string) => {
+    updateExercise(uid, ex => ({ ...ex, imageUrl: null }));
   };
 
-  const handleDeleteExercise = (exerciseIndex: number) => {
-    const updated = [...routines];
-    const wi = updated.findIndex(w => w.id === workoutId);
-    if (wi === -1) return;
-    const exs = [...(updated[wi].exercises || [])];
-    exs.splice(exerciseIndex, 1);
-    updated[wi] = { ...updated[wi], exercises: exs };
-    setRoutines(updated);
-    saveRoutines(user, updated);
+  const handleDeleteExercise = (uid: string) => {
+    // Soft delete: keeps the exercise's history visible in the training history
+    updateExercise(uid, ex => ({ ...ex, isDeleted: true }));
+    setSessionSets(prev => {
+      const { [uid]: _removed, ...rest } = prev;
+      return rest;
+    });
+    setSessionNotes(prev => {
+      const { [uid]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
-  const handleSaveNote = (exerciseIndex: number, note: string) => {
-    const updated = [...routines];
-    const wi = updated.findIndex(w => w.id === workoutId);
-    if (wi === -1) return;
-    const exs = [...(updated[wi].exercises || [])];
-    if (!exs[exerciseIndex]) return;
-    const existing = exs[exerciseIndex];
-    const maxTraining = (() => {
-      let max = 0;
-      existing.sets?.forEach((s: any) => s.history?.forEach((h: any) => {
-        if (typeof h.training === "number" && h.training > max) max = h.training;
-      }));
-      return max;
-    })();
-    const noteKey = maxTraining + 1;
-    exs[exerciseIndex] = {
-      ...existing,
-      sessionNotes: { ...(existing.sessionNotes || {}), [noteKey]: note },
-    };
-    updated[wi] = { ...updated[wi], exercises: exs };
-    setRoutines(updated);
-    saveRoutines(user, updated);
+  const handleSaveNote = (uid: string, note: string) => {
+    updateWorkout(r => {
+      const noteKey = getNextTrainingNumber(r);
+      return {
+        ...r,
+        exercises: r.exercises.map((ex: any) => ex.uid === uid
+          ? { ...ex, sessionNotes: { ...(ex.sessionNotes || {}), [noteKey]: note } }
+          : ex),
+      };
+    });
   };
 
-  const handleEditExercise = (exerciseIndex: number, updates: EditableExerciseFields) => {
-    const updated = [...routines];
-    const wi = updated.findIndex(w => w.id === workoutId);
-    if (wi === -1) return;
-    const exs = [...(updated[wi].exercises || [])];
-    if (!exs[exerciseIndex]) return;
-    exs[exerciseIndex] = {
-      ...exs[exerciseIndex],
+  const handleEditExercise = (uid: string, updates: EditableExerciseFields) => {
+    updateExercise(uid, ex => ({
+      ...ex,
       name: updates.name,
       sets_target: updates.targetSets.toString(),
       reps_target: updates.targetReps,
       tempo: updates.tempo,
       rest: updates.rest,
       techniqueNote: updates.techniqueNote ?? "",
-    };
-    updated[wi] = { ...updated[wi], exercises: exs };
-    setRoutines(updated);
-    saveRoutines(user, updated);
+    }));
   };
 
   const handleFinishWorkout = () => {
-    const stats = calculateSummary(exercises, sessionSets, history, startTime.current);
-    const completedExercises: CompletedExerciseData[] = exercises.map((exercise, exerciseIndex) => ({
-      exerciseIndex,
+    const stats = calculateSummary(exercises, sessionSets, history, startedAt.current);
+    const completedExercises: CompletedExerciseData[] = exercises.map(exercise => ({
+      exerciseUid: exercise.id,
       sets: (sessionSets[exercise.id] ?? []).map(s => ({ weight: s.weight, reps: s.reps, completed: s.completed })),
       note: sessionNotes[exercise.id],
     }));
-    saveWorkoutSession(user, workoutId, completedExercises);
+    const saved = saveWorkoutSession(user, workoutId, completedExercises);
+    if (!saved) {
+      alert("Opslaan is mislukt. Je ingevulde waarden blijven bewaard als concept.");
+      return;
+    }
+    finished.current = true;
+    clearDraft(user, workoutId);
+    setRestTimer(null);
     setSummary(stats);
     setPhase("summary");
+  };
+
+  const handleDiscard = () => {
+    finished.current = true;
+    clearDraft(user, workoutId);
+    onBack();
   };
 
   if (phase === "summary" && summary) {
@@ -266,8 +290,8 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
     );
   }
 
-  const completedSetCount = (Object.values(sessionSets) as SetLog[][]).reduce(
-    (total, sets) => total + sets.filter(s => s.completed).length, 0
+  const completedSetCount = exercises.reduce(
+    (total, ex) => total + (sessionSets[ex.id] ?? []).filter(s => s.completed).length, 0
   );
   const totalSetCount = exercises.reduce((total, ex) => total + ex.targetSets, 0);
   const progress = totalSetCount > 0 ? completedSetCount / totalSetCount : 0;
@@ -276,7 +300,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
     <div className="min-h-screen bg-[#08080f] font-sans pb-32">
       {/* Sticky header */}
       <header className="bg-[#08080f]/90 backdrop-blur-md px-5 py-4 sticky top-0 z-20 border-b border-white/[0.05]">
-        <div className="flex items-center gap-4 mb-3 max-w-2xl mx-auto">
+        <div className="flex items-center gap-3 mb-3 max-w-2xl mx-auto">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={onBack}
@@ -290,6 +314,14 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
             </h1>
             <p className="text-xs text-white/30 font-medium">{completedSetCount} / {totalSetCount} sets</p>
           </div>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowHistory(true)}
+            className="w-10 h-10 rounded-2xl bg-white/[0.06] border border-white/[0.06] flex items-center justify-center text-white/50 hover:text-white/80 transition-colors shrink-0"
+            title="Trainingshistorie"
+          >
+            <History className="w-4 h-4" />
+          </motion.button>
           <div className={cn(
             "text-xs font-bold px-3 py-1.5 rounded-full transition-colors",
             progress >= 1 ? "bg-[#c2ff5d] text-[#08080f]" : "bg-white/[0.06] text-white/30"
@@ -311,22 +343,28 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
       </header>
 
       <main className="px-4 sm:px-6 py-6 space-y-5 max-w-2xl mx-auto">
-        {exercises.map((exercise, index) => (
+        {exercises.map(exercise => (
           <ExerciseCard
             key={exercise.id}
             exercise={exercise}
             historicalLogs={history[exercise.id] || []}
-            onUploadImage={file => handleUploadImage(index, file)}
-            onDeleteImage={() => handleDeleteImage(index)}
-            onEditExercise={updates => handleEditExercise(index, updates)}
-            onDeleteExercise={() => handleDeleteExercise(index)}
+            initialSets={sessionSets[exercise.id]}
+            initialNote={sessionNotes[exercise.id]}
+            onUploadImage={file => handleUploadImage(exercise.id, file)}
+            onDeleteImage={() => handleDeleteImage(exercise.id)}
+            onEditExercise={updates => handleEditExercise(exercise.id, updates)}
+            onDeleteExercise={() => handleDeleteExercise(exercise.id)}
             onSetsChange={sets => setSessionSets(prev => ({ ...prev, [exercise.id]: sets }))}
-            onSetCompleted={secs => setRestTimer({ secondsLeft: secs, totalSeconds: secs })}
+            onStartRest={startRest}
             onNoteChange={note => setSessionNotes(prev => ({ ...prev, [exercise.id]: note }))}
-            onSaveNote={note => handleSaveNote(index, note)}
+            onSaveNote={note => handleSaveNote(exercise.id, note)}
           />
         ))}
       </main>
+
+      <AnimatePresence>
+        {showHistory && <SessionHistory routine={workoutData} onClose={() => setShowHistory(false)} />}
+      </AnimatePresence>
 
       {/* Full-screen rest timer */}
       <AnimatePresence>
@@ -344,7 +382,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
               animate={{ opacity: 1, y: 0 }}
               className="text-white/30 text-xs font-bold uppercase tracking-[0.25em] mb-10"
             >
-              {restTimer.secondsLeft <= 0 ? "Klaar!" : "Rust"}
+              {timerDone ? "Klaar!" : "Rust"}
             </motion.p>
 
             {/* Big countdown ring */}
@@ -369,19 +407,19 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
                 <motion.circle
                   cx="110" cy="110" r="96"
                   fill="none"
-                  stroke={restTimer.secondsLeft <= 0 ? "#c2ff5d" : "#c2ff5d"}
+                  stroke="#c2ff5d"
                   strokeWidth="5"
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 96}`}
-                  strokeDashoffset={`${2 * Math.PI * 96 * (1 - Math.max(0, restTimer.secondsLeft) / restTimer.totalSeconds)}`}
+                  strokeDashoffset={`${2 * Math.PI * 96 * (1 - secondsLeft / restTimer.total)}`}
                   style={{
-                    filter: restTimer.secondsLeft <= 0 ? "drop-shadow(0 0 12px #c2ff5d)" : "drop-shadow(0 0 6px rgba(194,255,93,0.5))",
+                    filter: timerDone ? "drop-shadow(0 0 12px #c2ff5d)" : "drop-shadow(0 0 6px rgba(194,255,93,0.5))",
                     transition: "stroke-dashoffset 0.9s linear",
                   }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {restTimer.secondsLeft <= 0 ? (
+                {timerDone ? (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -392,14 +430,14 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
                 ) : (
                   <AnimatePresence mode="popLayout">
                     <motion.span
-                      key={restTimer.secondsLeft}
+                      key={secondsLeft}
                       initial={{ opacity: 0, scale: 0.7 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 1.2 }}
                       transition={{ duration: 0.2 }}
                       className="text-6xl font-black text-white tabular-nums"
                     >
-                      {restTimer.secondsLeft}
+                      {secondsLeft}
                     </motion.span>
                   </AnimatePresence>
                 )}
@@ -426,7 +464,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
         <div className="max-w-2xl mx-auto pointer-events-auto flex justify-center">
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={() => setShowFinishConfirm(true)}
+            onClick={() => { setConfirmDiscard(false); setShowFinishConfirm(true); }}
             className="flex items-center gap-2 px-6 py-3 bg-white/[0.07] border border-white/[0.08] text-white/50 rounded-full text-sm font-semibold hover:bg-white/10 hover:text-white/70 transition-colors"
           >
             <CheckCircle2 className="w-4 h-4" />
@@ -459,7 +497,7 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
               <h3 className="text-base font-bold text-white mb-1.5">Workout afronden?</h3>
               <p className="text-sm text-white/40 leading-relaxed mb-6">
                 {completedSetCount < totalSetCount
-                  ? `Je hebt nog ${totalSetCount - completedSetCount} sets niet voltooid. Wil je toch afronden?`
+                  ? `Je hebt nog ${totalSetCount - completedSetCount} sets niet ingevuld. Wil je toch afronden?`
                   : "Goed werk! Wil je de workout opslaan?"}
               </p>
               <div className="flex gap-3">
@@ -476,6 +514,14 @@ export function WorkoutSession({ workoutId, user, onBack }: WorkoutSessionProps)
                   Afronden
                 </button>
               </div>
+              {hasDraftData(sessionSets, sessionNotes) && (
+                <button
+                  onClick={() => (confirmDiscard ? handleDiscard() : setConfirmDiscard(true))}
+                  className="w-full mt-4 text-xs font-semibold text-rose-400/70 hover:text-rose-400 transition-colors"
+                >
+                  {confirmDiscard ? "Zeker weten? Tik nogmaals om te verwerpen" : "Training verwerpen zonder opslaan"}
+                </button>
+              )}
             </motion.div>
           </motion.div>
         )}

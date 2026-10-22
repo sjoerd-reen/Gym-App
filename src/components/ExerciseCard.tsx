@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Camera, Check, Clock, Upload, History,
   Lightbulb, TrendingUp, TrendingDown, Minus, MessageSquare, Info,
-  MoreVertical, Trash2, Pencil, Send,
+  MoreVertical, Trash2, Pencil, Send, Timer,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { getImageUrlFromFirestore } from "@/src/lib/firebase";
@@ -50,10 +50,21 @@ interface ExerciseCardProps {
   onDeleteImage?: () => void;
   onEditExercise?: (updates: EditableExerciseFields) => void;
   onDeleteExercise?: () => void;
+  initialSets?: SetLog[];
+  initialNote?: string;
   onSetsChange?: (sets: SetLog[]) => void;
-  onSetCompleted?: (restSeconds: number) => void;
+  onStartRest?: (restSeconds: number) => void;
   onNoteChange?: (note: string) => void;
   onSaveNote?: (note: string) => void;
+}
+
+function buildSets(count: number, existing: SetLog[] = []): SetLog[] {
+  return Array.from({ length: count }, (_, i) => existing[i] ?? {
+    setNumber: i + 1,
+    weight: "",
+    reps: "",
+    completed: false,
+  });
 }
 
 function parseRestSeconds(rest: string): number {
@@ -78,20 +89,15 @@ export function ExerciseCard({
   onDeleteImage,
   onEditExercise,
   onDeleteExercise,
+  initialSets,
+  initialNote,
   onSetsChange,
-  onSetCompleted,
+  onStartRest,
   onNoteChange,
   onSaveNote,
 }: ExerciseCardProps) {
-  const [sets, setSets] = useState<SetLog[]>(
-    Array.from({ length: exercise.targetSets }, (_, i) => ({
-      setNumber: i + 1,
-      weight: "",
-      reps: "",
-      completed: false,
-    }))
-  );
-  const [note, setNote] = useState("");
+  const [sets, setSets] = useState<SetLog[]>(() => buildSets(exercise.targetSets, initialSets));
+  const [note, setNote] = useState(initialNote ?? "");
   const [isUploading, setIsUploading] = useState(false);
   const [displayImageUrl, setDisplayImageUrl] = useState<string | undefined>(exercise.imageUrl);
   const [showMenu, setShowMenu] = useState(false);
@@ -110,7 +116,14 @@ export function ExerciseCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!exercise.imageUrl) return;
+    if (sets.length !== exercise.targetSets) setSets(prev => buildSets(exercise.targetSets, prev));
+  }, [exercise.targetSets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!exercise.imageUrl) {
+      setDisplayImageUrl(undefined);
+      return;
+    }
     if (exercise.imageUrl.startsWith("firestore://")) {
       getImageUrlFromFirestore(exercise.imageUrl).then(url => {
         if (url) setDisplayImageUrl(url);
@@ -181,23 +194,11 @@ export function ExerciseCard({
   const handleSetChange = (index: number, field: "weight" | "reps", value: string) => {
     setSets(prev => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value === "" ? "" : Number(value) };
+      const updated = { ...next[index], [field]: value === "" ? "" : Number(value) };
+      updated.completed = updated.weight !== "" && updated.reps !== "";
+      next[index] = updated;
       return next;
     });
-  };
-
-  const toggleSetComplete = (index: number) => {
-    const current = sets[index];
-    if (!current.completed && (current.weight === "" || current.reps === "")) return;
-    const updatedSet = { ...current, completed: !current.completed };
-    setSets(prev => {
-      const next = [...prev];
-      next[index] = updatedSet;
-      return next;
-    });
-    if (!current.completed) {
-      onSetCompleted?.(parseRestSeconds(exercise.rest));
-    }
   };
 
   const prefillFromHistory = (index: number) => {
@@ -206,7 +207,7 @@ export function ExerciseCard({
     setSets(prev => {
       const next = [...prev];
       if (next[index].weight === "" && next[index].reps === "") {
-        next[index] = { ...next[index], weight: lastSet.weight, reps: lastSet.reps };
+        next[index] = { ...next[index], weight: lastSet.weight, reps: lastSet.reps, completed: true };
       }
       return next;
     });
@@ -604,7 +605,7 @@ export function ExerciseCard({
             <div className="w-10 text-center text-[10px] font-bold text-white/20 uppercase tracking-widest">Set</div>
             <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">KG</div>
             <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Reps</div>
-            <div className="w-14 text-center text-[10px] font-bold text-white/20 uppercase tracking-widest">Klaar</div>
+            <div className="w-14 text-center text-[10px] font-bold text-white/20 uppercase tracking-widest">Rust</div>
           </div>
 
           {sets.map((set, index) => (
@@ -635,13 +636,11 @@ export function ExerciseCard({
                 inputMode="decimal"
                 value={set.weight}
                 onChange={e => handleSetChange(index, "weight", e.target.value)}
-                disabled={set.completed}
                 placeholder={historicalLogs[0]?.sets[index]?.weight.toString() ?? "0"}
                 className={cn(
                   "w-full h-12 rounded-xl px-4 text-lg font-semibold outline-none transition-all",
                   "bg-[#0a0a12] border border-white/[0.06]",
                   "focus:border-[#c2ff5d]/30 focus:bg-[#0f0f1a]",
-                  "disabled:opacity-30 disabled:bg-transparent disabled:border-transparent",
                   "placeholder:text-white/15",
                   set.completed ? "text-[#c2ff5d]" : "text-white"
                 )}
@@ -652,13 +651,11 @@ export function ExerciseCard({
                 inputMode="numeric"
                 value={set.reps}
                 onChange={e => handleSetChange(index, "reps", e.target.value)}
-                disabled={set.completed}
                 placeholder={historicalLogs[0]?.sets[index]?.reps.toString() ?? "0"}
                 className={cn(
                   "w-full h-12 rounded-xl px-4 text-lg font-semibold outline-none transition-all",
                   "bg-[#0a0a12] border border-white/[0.06]",
                   "focus:border-[#c2ff5d]/30 focus:bg-[#0f0f1a]",
-                  "disabled:opacity-30 disabled:bg-transparent disabled:border-transparent",
                   "placeholder:text-white/15",
                   set.completed ? "text-[#c2ff5d]" : "text-white"
                 )}
@@ -666,31 +663,11 @@ export function ExerciseCard({
 
               <motion.button
                 whileTap={{ scale: 0.85 }}
-                onClick={() => toggleSetComplete(index)}
-                className={cn(
-                  "w-14 h-12 rounded-xl flex items-center justify-center transition-all",
-                  set.completed
-                    ? "bg-[#c2ff5d] shadow-lg shadow-[#c2ff5d]/20"
-                    : "bg-white/[0.06] border border-white/[0.06] hover:bg-white/10"
-                )}
+                onClick={() => onStartRest?.(parseRestSeconds(exercise.rest))}
+                className="w-14 h-12 rounded-xl flex items-center justify-center bg-white/[0.06] border border-white/[0.06] text-white/30 hover:bg-white/10 hover:text-white/60 transition-all"
+                title="Start rusttimer"
               >
-                <AnimatePresence mode="wait">
-                  {set.completed ? (
-                    <motion.div
-                      key="check"
-                      initial={{ scale: 0, rotate: -20 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      exit={{ scale: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                    >
-                      <Check className="w-5 h-5 text-[#08080f]" strokeWidth={3} />
-                    </motion.div>
-                  ) : (
-                    <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <Check className="w-4 h-4 text-white/20" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <Timer className="w-4 h-4" />
               </motion.button>
             </motion.div>
           ))}

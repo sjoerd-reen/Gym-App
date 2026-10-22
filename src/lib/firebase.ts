@@ -31,14 +31,18 @@ export async function getImageUrlFromFirestore(firestoreUrl: string): Promise<st
 
 // ── Routines ──────────────────────────────────────────────────────────────────
 
-export async function saveRoutinesToFirestore(user: string, routines: unknown[]): Promise<void> {
+export async function saveRoutinesToFirestore(user: string, routines: unknown[], updatedAt: number): Promise<void> {
   await authReady;
-  await setDoc(doc(db, "routines", user.toLowerCase()), { data: routines, updatedAt: Date.now() });
+  await setDoc(doc(db, "routines", user.toLowerCase()), { data: routines, updatedAt });
 }
 
-export async function loadRoutinesFromFirestore(user: string): Promise<unknown[] | null> {
+export async function loadRoutinesFromFirestore(
+  user: string
+): Promise<{ data: unknown[]; updatedAt: number } | null> {
   await authReady;
   const snap = await getDoc(doc(db, "routines", user.toLowerCase()));
   if (!snap.exists()) return null;
-  return snap.data().data ?? null;
+  const { data, updatedAt } = snap.data();
+  if (!data) return null;
+  return { data, updatedAt: typeof updatedAt === "number" ? updatedAt : 0 };
 }

@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Dumbbell, Archive, RotateCcw, Plus, X, Upload, Clock, ChevronRight, Flame } from "lucide-react";
+import { Dumbbell, Archive, RotateCcw, Plus, X, Upload, Clock, Flame, History } from "lucide-react";
 import { cn, compressImage } from "@/src/lib/utils";
-import { getRoutines, saveRoutines, syncRoutinesFromCloud, Routine, getLastTrainedDate, formatRelativeDate } from "@/src/lib/storage";
+import {
+  getRoutines, saveRoutines, syncRoutinesFromCloud, Routine, getLastTrainedDate, formatRelativeDate,
+  activeExercises, getDraft, newExerciseUid,
+} from "@/src/lib/storage";
+import { SessionHistory } from "./SessionHistory";
 import { uploadImageToFirestore, getImageUrlFromFirestore } from "@/src/lib/firebase";
 
 function FirestoreImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
@@ -44,6 +48,7 @@ interface DashboardProps {
 export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [historyRoutine, setHistoryRoutine] = useState<Routine | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newRoutineName, setNewRoutineName] = useState("");
   const [newExercises, setNewExercises] = useState<NewExercise[]>([]);
@@ -78,6 +83,7 @@ export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
   const handleCreate = () => {
     if (!newRoutineName.trim()) return;
     const formattedExercises = newExercises.map(ex => ({
+      uid: newExerciseUid(),
       name: ex.name,
       sets_target: ex.sets_target,
       reps_target: ex.reps_target,
@@ -150,7 +156,8 @@ export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
       id: data.id,
       name: data.workout_name,
       completedCount: countUniqueSessions(data.exercises),
-      exerciseCount: data.exercises?.length ?? 0,
+      exerciseCount: activeExercises(data).length,
+      hasDraft: getDraft(user, data.id) !== null,
       lastTrained: lastDate ? formatRelativeDate(lastDate) : null,
       accent: CARD_ACCENTS[index % CARD_ACCENTS.length],
       isArchived: data.isArchived,
@@ -238,7 +245,7 @@ export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
                 transition={{ delay: index * 0.04, duration: 0.3 }}
                 className="relative"
               >
-                <div className="bg-[#111118] border border-white/[0.06] rounded-2xl flex items-center gap-4 p-4 overflow-hidden">
+                <div className="bg-[#111118] border border-white/[0.06] rounded-2xl flex items-center gap-1 p-4 pr-2 overflow-hidden">
                   {/* Subtle gradient bg tint */}
                   <div className={cn("absolute inset-0 opacity-[0.04] bg-gradient-to-r pointer-events-none", workout.accent.from, workout.accent.to)} />
 
@@ -265,14 +272,30 @@ export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
                       <p className="text-white/30 text-sm mt-0.5">
                         {workout.exerciseCount} oefeningen · {workout.completedCount}×
                       </p>
-                      {workout.lastTrained && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="w-3 h-3 text-white/20" />
-                          <span className="text-white/20 text-xs">{workout.lastTrained}</span>
+                      {(workout.lastTrained || workout.hasDraft) && (
+                        <div className="flex items-center gap-2 mt-1">
+                          {workout.hasDraft && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#08080f] bg-[#c2ff5d] rounded-full px-2 py-0.5">
+                              Bezig
+                            </span>
+                          )}
+                          {workout.lastTrained && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-white/20" />
+                              <span className="text-white/20 text-xs">{workout.lastTrained}</span>
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-white/15 shrink-0" />
+                  </button>
+
+                  <button
+                    onClick={() => setHistoryRoutine(routines.find(r => r.id === workout.id) ?? null)}
+                    className="p-2.5 text-white/15 hover:text-white/40 hover:bg-white/[0.06] rounded-xl transition-all relative shrink-0"
+                    title="Trainingshistorie"
+                  >
+                    <History className="w-4 h-4" />
                   </button>
 
                   <button
@@ -302,6 +325,10 @@ export function Dashboard({ user, onSelectWorkout, onLogout }: DashboardProps) {
           )}
         </div>
       </main>
+
+      <AnimatePresence>
+        {historyRoutine && <SessionHistory routine={historyRoutine} onClose={() => setHistoryRoutine(null)} />}
+      </AnimatePresence>
 
       {/* Create Modal */}
       <AnimatePresence>

@@ -2,6 +2,8 @@ import { SJOERD_DATA } from "@/src/data/sjoerd-data";
 import { NIKITA_DATA } from "@/src/data/nikita-data";
 import { saveRoutinesToFirestore, loadRoutinesFromFirestore } from "@/src/lib/firebase";
 
+export type User = "Sjoerd" | "Nikita";
+
 export interface Routine {
   id: string;
   workout_name: string;
@@ -17,34 +19,57 @@ export interface CompletedSetData {
 }
 
 export interface CompletedExerciseData {
-  exerciseIndex: number;
+  exerciseUid: string;
   sets: CompletedSetData[];
   note?: string;
 }
 
-function makeId(name: string, index: number): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + index;
+const routinesKey = (user: User) => `routines_${user}`;
+const updatedAtKey = (user: User) => `routines_${user}_updatedAt`;
+const backupKey = (user: User) => `routines_${user}_backups`;
+const MAX_BACKUPS = 5;
+
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
-export function getRoutines(user: "Sjoerd" | "Nikita"): Routine[] {
-  const key = `routines_${user}`;
-  const stored = localStorage.getItem(key);
-  const defaultData = user === "Sjoerd" ? SJOERD_DATA : NIKITA_DATA;
+function makeId(name: string, index: number): string {
+  return slug(name) + "-" + index;
+}
 
-  if (!stored) {
-    const initialized = defaultData.map((d, i) => ({
-      ...d,
-      id: makeId(d.workout_name, i),
-      isArchived: false,
-    }));
-    localStorage.setItem(key, JSON.stringify(initialized));
-    return initialized;
+export function newExerciseUid(): string {
+  return `ex-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function activeExercises(routine: Routine): any[] {
+  return (routine.exercises ?? []).filter((ex: any) => !ex.isDeleted);
+}
+
+function countHistoryEntries(routines: Routine[]): number {
+  let n = 0;
+  routines.forEach(r => r.exercises?.forEach((ex: any) => ex.sets?.forEach((s: any) => {
+    n += s.history?.length ?? 0;
+  })));
+  return n;
+}
+
+function backupLocal(user: User, reason: string) {
+  try {
+    const current = localStorage.getItem(routinesKey(user));
+    if (!current) return;
+    const backups = JSON.parse(localStorage.getItem(backupKey(user)) || "[]");
+    backups.unshift({ at: new Date().toISOString(), reason, data: current });
+    localStorage.setItem(backupKey(user), JSON.stringify(backups.slice(0, MAX_BACKUPS)));
+  } catch (err) {
+    console.error("Backup failed", err);
   }
+}
 
-  let existing: Routine[] = JSON.parse(stored);
-  const existingNames = new Set(existing.map(r => r.workout_name));
+// Adds new default routines, fills missing default images and gives every exercise a stable uid.
+function reconcile(user: User, routines: Routine[]): { routines: Routine[]; changed: boolean } {
+  const defaultData = user === "Sjoerd" ? SJOERD_DATA : NIKITA_DATA;
+  let changed = false;
 
-  // Build imageUrl lookup from TS defaults: workoutName -> exerciseName -> imageUrl
   const imageDefaults: Record<string, Record<string, string>> = {};
   for (const workout of defaultData) {
     imageDefaults[workout.workout_name] = {};
@@ -53,57 +78,113 @@ export function getRoutines(user: "Sjoerd" | "Nikita"): Routine[] {
     }
   }
 
-  // Patch exercises missing an imageUrl with the default from TS data
-  let patched = false;
-  existing = existing.map(routine => {
-    const defaults = imageDefaults[routine.workout_name];
-    if (!defaults) return routine;
-    const updatedExercises = (routine.exercises ?? []).map((ex: any) => {
-      if (!ex.imageUrl && defaults[ex.name]) {
-        patched = true;
-        return { ...ex, imageUrl: defaults[ex.name] };
+  let result = routines.map(routine => {
+    const defaults = imageDefaults[routine.workout_name] ?? {};
+    let routineChanged = false;
+    const exercises = (routine.exercises ?? []).map((ex: any, i: number) => {
+      let next = ex;
+      // imageUrl === null means the user removed it on purpose; only fill when the key is absent
+      if (next.imageUrl === undefined && defaults[next.name]) {
+        next = { ...next, imageUrl: defaults[next.name] };
       }
-      return ex;
+      if (!next.uid) {
+        // Deterministic so local and cloud copies of legacy data get identical uids
+        next = { ...next, uid: `ex-${i}-${slug(next.name ?? "")}` };
+      }
+      if (next !== ex) routineChanged = true;
+      return next;
     });
-    return patched ? { ...routine, exercises: updatedExercises } : routine;
+    if (!routineChanged) return routine;
+    changed = true;
+    return { ...routine, exercises };
   });
 
-  // Append any routines from the TS data that aren't in localStorage yet
+  const existingNames = new Set(result.map(r => r.workout_name));
   const newRoutines = defaultData
     .filter(d => !existingNames.has(d.workout_name))
     .map((d, i) => ({
       ...d,
-      id: makeId(d.workout_name, existing.length + i),
+      id: makeId(d.workout_name, result.length + i),
       isArchived: false,
-    }));
+      exercises: ((d as any).exercises ?? []).map((ex: any, j: number) => ({
+        ...ex,
+        uid: `ex-${j}-${slug(ex.name ?? "")}`,
+      })),
+    })) as Routine[];
+  if (newRoutines.length > 0) {
+    result = [...result, ...newRoutines];
+    changed = true;
+  }
 
-  if (newRoutines.length === 0 && !patched) return existing;
-
-  const merged = [...existing, ...newRoutines];
-  localStorage.setItem(key, JSON.stringify(merged));
-  saveRoutinesToFirestore(user, merged).catch(console.error);
-  return merged;
+  return { routines: result, changed };
 }
 
-export function saveRoutines(user: "Sjoerd" | "Nikita", routines: Routine[]) {
-  localStorage.setItem(`routines_${user}`, JSON.stringify(routines));
-  saveRoutinesToFirestore(user, routines).catch(console.error);
+export function getRoutines(user: User): Routine[] {
+  const stored = localStorage.getItem(routinesKey(user));
+  const base: Routine[] = stored ? JSON.parse(stored) : [];
+  const { routines, changed } = reconcile(user, base);
+  // Written without bumping updatedAt, so this local housekeeping never outranks real cloud data
+  if (changed || !stored) localStorage.setItem(routinesKey(user), JSON.stringify(routines));
+  return routines;
 }
 
-export async function syncRoutinesFromCloud(user: "Sjoerd" | "Nikita"): Promise<Routine[] | null> {
+export function saveRoutines(user: User, routines: Routine[]) {
+  const updatedAt = Date.now();
+  localStorage.setItem(routinesKey(user), JSON.stringify(routines));
+  localStorage.setItem(updatedAtKey(user), updatedAt.toString());
+  saveRoutinesToFirestore(user, routines, updatedAt).catch(console.error);
+}
+
+export async function syncRoutinesFromCloud(user: User): Promise<Routine[] | null> {
   try {
-    const cloudData = await loadRoutinesFromFirestore(user);
-    if (!cloudData) return null;
-    const routines = cloudData as Routine[];
-    localStorage.setItem(`routines_${user}`, JSON.stringify(routines));
+    const cloud = await loadRoutinesFromFirestore(user);
+    const localTs = Number(localStorage.getItem(updatedAtKey(user)) || 0);
+    const local = getRoutines(user);
+
+    if (!cloud) {
+      saveRoutines(user, local);
+      return null;
+    }
+
+    let cloudWins: boolean;
+    if (localTs === 0) {
+      // No sync timestamp yet (first run after update): keep whichever copy holds more training history
+      cloudWins = countHistoryEntries(cloud.data as Routine[]) >= countHistoryEntries(local);
+    } else {
+      cloudWins = cloud.updatedAt > localTs;
+    }
+
+    if (!cloudWins) {
+      if (cloud.updatedAt !== localTs) {
+        const ts = localTs || Date.now();
+        localStorage.setItem(updatedAtKey(user), ts.toString());
+        saveRoutinesToFirestore(user, local, ts).catch(console.error);
+      }
+      return null;
+    }
+
+    if (cloud.updatedAt === localTs) return null;
+
+    backupLocal(user, "before cloud sync");
+    const { routines } = reconcile(user, cloud.data as Routine[]);
+    localStorage.setItem(routinesKey(user), JSON.stringify(routines));
+    localStorage.setItem(updatedAtKey(user), cloud.updatedAt.toString());
     return routines;
   } catch {
     return null;
   }
 }
 
+export function getNextTrainingNumber(routine: Routine): number {
+  let max = 0;
+  routine.exercises?.forEach((ex: any) => ex.sets?.forEach((set: any) => set.history?.forEach((h: any) => {
+    if (typeof h.training === "number" && h.training > max) max = h.training;
+  })));
+  return max + 1;
+}
+
 export function saveWorkoutSession(
-  user: "Sjoerd" | "Nikita",
+  user: User,
   workoutId: string,
   completedExercises: CompletedExerciseData[],
   sessionDate: string = new Date().toISOString()
@@ -114,30 +195,26 @@ export function saveWorkoutSession(
     if (workoutIndex === -1) return false;
 
     const workout = routines[workoutIndex];
+    const nextTraining = getNextTrainingNumber(workout);
 
-    let maxTraining = 0;
-    workout.exercises.forEach((ex: any) => {
-      ex.sets?.forEach((set: any) => {
-        set.history?.forEach((h: any) => {
-          if (typeof h.training === "number" && h.training > maxTraining) {
-            maxTraining = h.training;
-          }
-        });
-      });
-    });
-    const nextTraining = maxTraining + 1;
-
-    const updatedExercises = workout.exercises.map((ex: any, exIdx: number) => {
-      const completedEx = completedExercises.find(c => c.exerciseIndex === exIdx);
+    const updatedExercises = workout.exercises.map((ex: any) => {
+      const completedEx = completedExercises.find(c => c.exerciseUid === ex.uid);
       if (!completedEx) return ex;
 
       const setsTarget = parseInt(ex.sets_target || "3") || 3;
+      const existingSets: any[] = [...(ex.sets || [])];
+      // Make sure there's a set entry for every target set, so added sets also get logged
+      for (let n = 1; n <= setsTarget; n++) {
+        if (!existingSets.some(s => parseInt(s.set_number) === n)) {
+          existingSets.push({ set_number: n.toString() });
+        }
+      }
 
-      const updatedSets = (ex.sets || []).map((set: any, setIdx: number) => {
-        if (setIdx >= setsTarget) return set;
-        const completedSet = completedEx.sets[setIdx];
+      const updatedSets = existingSets.map((set: any) => {
+        const setNumber = parseInt(set.set_number);
+        if (!(setNumber >= 1 && setNumber <= setsTarget)) return set;
+        const completedSet = completedEx.sets[setNumber - 1];
         if (!completedSet?.completed || completedSet.weight === "" || completedSet.reps === "") return set;
-
         return {
           ...set,
           history: [
@@ -177,6 +254,98 @@ export function saveWorkoutSession(
   }
 }
 
+// ── Drafts (in-progress workouts) ─────────────────────────────────────────────
+
+export interface WorkoutDraft {
+  startedAt: number;
+  updatedAt: number;
+  sets: Record<string, CompletedSetData[]>;
+  notes: Record<string, string>;
+  rest?: { endsAt: number; total: number } | null;
+}
+
+const draftKey = (user: User, workoutId: string) => `draft_${user}_${workoutId}`;
+
+export function getDraft(user: User, workoutId: string): WorkoutDraft | null {
+  try {
+    const raw = localStorage.getItem(draftKey(user, workoutId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveDraft(user: User, workoutId: string, draft: WorkoutDraft) {
+  localStorage.setItem(draftKey(user, workoutId), JSON.stringify(draft));
+}
+
+export function clearDraft(user: User, workoutId: string) {
+  localStorage.removeItem(draftKey(user, workoutId));
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+export function parseWeight(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const match = raw.toString().replace(",", ".").trim().match(/^[\d.]+/);
+  if (!match) return null;
+  const value = parseFloat(match[0]);
+  return isNaN(value) ? null : value;
+}
+
+export function parseReps(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const value = parseInt(raw.toString().trim());
+  return isNaN(value) || value === 0 ? null : value;
+}
+
+export interface PastSession {
+  training: number;
+  date: string | null;
+  exercises: { name: string; sets: { weight: number; reps: number }[]; note?: string }[];
+}
+
+export function getSessionHistory(routine: Routine): PastSession[] {
+  const sessions = new Map<number, PastSession>();
+  const get = (training: number) => {
+    if (!sessions.has(training)) {
+      sessions.set(training, { training, date: routine.trainingDates?.[training] ?? null, exercises: [] });
+    }
+    return sessions.get(training)!;
+  };
+
+  (routine.exercises ?? []).forEach((ex: any) => {
+    const setsTarget = parseInt(ex.sets_target || "3") || 3;
+    const perTraining = new Map<number, { setNumber: number; weight: number; reps: number }[]>();
+    (ex.sets ?? []).forEach((set: any) => {
+      const setNumber = parseInt(set.set_number);
+      if (!(setNumber >= 1 && setNumber <= setsTarget)) return;
+      set.history?.forEach((h: any) => {
+        const weight = parseWeight(h.weight);
+        const reps = parseReps(h.reps);
+        if (weight === null || reps === null || typeof h.training !== "number") return;
+        if (!perTraining.has(h.training)) perTraining.set(h.training, []);
+        perTraining.get(h.training)!.push({ setNumber, weight, reps });
+        const session = get(h.training);
+        if (!session.date && h.date) session.date = h.date;
+      });
+    });
+    perTraining.forEach((sets, training) => {
+      get(training).exercises.push({
+        name: ex.name,
+        sets: sets.sort((a, b) => a.setNumber - b.setNumber).map(({ weight, reps }) => ({ weight, reps })),
+        note: ex.sessionNotes?.[training],
+      });
+    });
+  });
+
+  return Array.from(sessions.values())
+    .filter(s => s.exercises.length > 0)
+    .sort((a, b) => b.training - a.training);
+}
+
+// ── Dates ─────────────────────────────────────────────────────────────────────
+
 export function getLastTrainedDate(routine: Routine): Date | null {
   if (routine.trainingDates) {
     const entries = Object.entries(routine.trainingDates);
@@ -185,7 +354,6 @@ export function getLastTrainedDate(routine: Routine): Date | null {
       return new Date(latest[1]);
     }
   }
-  // Fallback: scan history entries for date fields
   let latestDate: Date | null = null;
   routine.exercises?.forEach((ex: any) => {
     ex.sets?.forEach((set: any) => {

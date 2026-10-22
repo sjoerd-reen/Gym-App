@@ -15,6 +15,7 @@ export default function App() {
     const storedUser = localStorage.getItem("fitness_user");
     if (storedUser === "Sjoerd" || storedUser === "Nikita") {
       setUser(storedUser);
+      setActiveWorkout(localStorage.getItem("fitness_active_workout"));
     }
     setIsLoaded(true);
   }, []);
@@ -24,10 +25,16 @@ export default function App() {
     setUser(selectedUser);
   };
 
+  const openWorkout = (workoutId: string | null) => {
+    if (workoutId) localStorage.setItem("fitness_active_workout", workoutId);
+    else localStorage.removeItem("fitness_active_workout");
+    setActiveWorkout(workoutId);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("fitness_user");
     setUser(null);
-    setActiveWorkout(null);
+    openWorkout(null);
   };
 
   if (!isLoaded) return null;
@@ -55,7 +62,7 @@ export default function App() {
           >
             <Dashboard
               user={user}
-              onSelectWorkout={setActiveWorkout}
+              onSelectWorkout={openWorkout}
               onLogout={handleLogout}
             />
           </motion.div>
@@ -70,7 +77,7 @@ export default function App() {
             <WorkoutSession
               workoutId={activeWorkout}
               user={user}
-              onBack={() => setActiveWorkout(null)}
+              onBack={() => openWorkout(null)}
             />
           </motion.div>
         )}
