@@ -39,34 +39,36 @@ export function RoutineCard({ routine, index, inProgress, onStart, onHistory, on
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "relative flex items-center gap-4 p-4 rounded-[28px] bg-surface shadow-card",
+        "relative flex items-center gap-3.5 p-4 pr-3 rounded-[28px] bg-surface shadow-card",
         routine.isArchived && "opacity-70"
       )}
     >
       <button onClick={onStart} className="absolute inset-0 rounded-[28px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20" aria-label={`Start ${routine.workout_name}`} />
       <div className={cn(
-        "pointer-events-none w-14 h-14 rounded-[20px] bg-gradient-to-br text-white flex items-center justify-center shrink-0",
+        "pointer-events-none w-12 h-12 rounded-[18px] bg-gradient-to-br text-white flex items-center justify-center shrink-0",
         routineTint(index),
         routine.isArchived && "grayscale"
       )}>
-        <Dumbbell className="w-6 h-6" />
+        <Dumbbell className="w-[22px] h-[22px]" />
       </div>
       <div className="pointer-events-none flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <h3 className="text-[16px] leading-snug font-semibold tracking-tight text-ink line-clamp-2">{routine.workout_name}</h3>
         </div>
         <p className="mt-0.5 text-sm text-muted">
-          {exerciseCount} oefeningen · {timesDone}×
+          <span className="whitespace-nowrap">{exerciseCount} oefeningen</span>
+          {" · "}
+          <span className="whitespace-nowrap">{timesDone}×</span>
         </p>
-        <div className="mt-1.5 flex items-center gap-2 text-xs">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs">
           {inProgress && (
-            <span className="inline-flex items-center gap-1 font-semibold text-success">
+            <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-success-soft font-semibold text-success whitespace-nowrap">
               <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
               Bezig
             </span>
           )}
           {last && (
-            <span className="inline-flex items-center gap-1 text-muted">
+            <span className="inline-flex items-center gap-1 text-muted whitespace-nowrap">
               <Clock className="w-3 h-3" />
               {formatRelativeDate(last)}
             </span>
@@ -74,7 +76,7 @@ export function RoutineCard({ routine, index, inProgress, onStart, onHistory, on
         </div>
       </div>
 
-      <div className="relative flex items-center gap-1">
+      <div className="relative flex items-center gap-0.5 shrink-0">
         {hasMenu && <CardMenu routine={routine} onHistory={onHistory} onToggleArchive={onToggleArchive} />}
         {!routine.isArchived && (
           <span className={cn(
@@ -106,7 +108,7 @@ function CardMenu({ routine, onHistory, onToggleArchive }: Pick<RoutineCardProps
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-muted hover:bg-subtle hover:text-ink transition-colors"
+        className="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:bg-subtle hover:text-ink transition-colors"
         aria-label="Meer opties"
       >
         <MoreHorizontal className="w-5 h-5" />
