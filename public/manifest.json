@@ -4,8 +4,8 @@
   "description": "Track je workouts",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#08080f",
-  "theme_color": "#08080f",
+  "background_color": "#f5f6f8",
+  "theme_color": "#f5f6f8",
   "icons": [
     {
       "src": "/icon-192.png",

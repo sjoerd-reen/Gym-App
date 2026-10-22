@@ -13,8 +13,8 @@ export interface Routine {
 }
 
 export interface CompletedSetData {
-  weight: number | "";
-  reps: number | "";
+  weight: number | string;
+  reps: number | string;
   completed: boolean;
 }
 
