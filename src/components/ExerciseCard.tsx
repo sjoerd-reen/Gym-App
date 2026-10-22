@@ -229,7 +229,7 @@ export function ExerciseCard({
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#111118] border border-white/[0.07] rounded-3xl overflow-hidden font-sans"
+      className="relative bg-[#111118] border border-white/[0.07] rounded-3xl overflow-hidden font-sans"
     >
       {/* Image header */}
       <div className="relative aspect-[16/9] bg-[#0a0a12] flex items-center justify-center overflow-hidden">
@@ -278,58 +278,6 @@ export function ExerciseCard({
           </div>
         </div>
 
-        {/* 3-dot menu — always visible */}
-        <div ref={menuRef} className="absolute top-3 right-3 z-10">
-          <button
-            onClick={() => setShowMenu(v => !v)}
-            className={cn(
-              "w-8 h-8 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all",
-              displayImageUrl
-                ? "bg-black/40 border-white/10 text-white/70 hover:text-white hover:bg-black/60"
-                : "bg-white/[0.08] border-white/[0.08] text-white/40 hover:text-white/70 hover:bg-white/12"
-            )}
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
-          <AnimatePresence>
-            {showMenu && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: -4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: -4 }}
-                transition={{ duration: 0.12 }}
-                className="absolute top-10 right-0 bg-[#1a1a26] border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden min-w-[190px]"
-              >
-                <button
-                  onClick={openEdit}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/[0.06] transition-colors"
-                >
-                  <Pencil className="w-4 h-4" />
-                  Oefening bewerken
-                </button>
-                {displayImageUrl && (
-                  <button
-                    onClick={() => { setShowMenu(false); setShowConfirm(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/50 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Afbeelding verwijderen
-                  </button>
-                )}
-                {onDeleteExercise && (
-                  <button
-                    onClick={() => { setShowMenu(false); setShowDeleteExerciseConfirm(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-white/[0.05]"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Oefening verwijderen
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* Progress badge — offset to avoid menu button */}
         <AnimatePresence>
           {completedCount > 0 && (
@@ -345,6 +293,58 @@ export function ExerciseCard({
               )}
             >
               {completedCount}/{exercise.targetSets}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 3-dot menu — always visible */}
+      <div ref={menuRef} className="absolute top-3 right-3 z-10">
+        <button
+          onClick={() => setShowMenu(v => !v)}
+          className={cn(
+            "w-8 h-8 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all",
+            displayImageUrl
+              ? "bg-black/40 border-white/10 text-white/70 hover:text-white hover:bg-black/60"
+              : "bg-white/[0.08] border-white/[0.08] text-white/40 hover:text-white/70 hover:bg-white/12"
+          )}
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+        <AnimatePresence>
+          {showMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -4 }}
+              transition={{ duration: 0.12 }}
+              className="absolute top-10 right-0 z-20 bg-[#1a1a26] border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden min-w-[190px]"
+            >
+              <button
+                onClick={openEdit}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left whitespace-nowrap text-white/70 hover:bg-white/[0.06] transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Oefening bewerken
+              </button>
+              {displayImageUrl && (
+                <button
+                  onClick={() => { setShowMenu(false); setShowConfirm(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left whitespace-nowrap text-white/50 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Afbeelding verwijderen
+                </button>
+              )}
+              {onDeleteExercise && (
+                <button
+                  onClick={() => { setShowMenu(false); setShowDeleteExerciseConfirm(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left whitespace-nowrap text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-white/[0.05]"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Oefening verwijderen
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
