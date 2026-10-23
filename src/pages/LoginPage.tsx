@@ -1,6 +1,6 @@
 import { Navigate, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { ArrowRight, Dumbbell } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useUser } from "@/src/app/providers/UserProvider";
 import type { User } from "@/src/lib/storage";
 
@@ -30,9 +30,8 @@ export function LoginPage() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-12"
         >
-          <div className="mx-auto mb-7 w-16 h-16 rounded-[22px] bg-accent text-white flex items-center justify-center shadow-accent">
-            <Dumbbell className="w-7 h-7" />
-          </div>
+          <img src="/brand/logo-light.png" alt="SN Lift" className="mx-auto h-16 w-auto" />
+          <p className="mt-3 mb-8 text-[13px] font-semibold uppercase tracking-[0.18em] text-muted">SN Lift</p>
           <h1 className="text-[36px] leading-[1.05] font-bold tracking-[-0.035em] text-ink">
             Wie traint er<br />vandaag?
           </h1>

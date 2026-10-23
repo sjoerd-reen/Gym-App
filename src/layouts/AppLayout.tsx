@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, Outlet } from "react-router";
 import { motion } from "motion/react";
-import { Dumbbell, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { NAV_ITEMS } from "./navigation";
 import { useUser, useRequiredUser } from "@/src/app/providers/UserProvider";
 import { useActiveDrafts } from "@/src/hooks/useActiveDrafts";
@@ -70,11 +70,9 @@ function Sidebar() {
   return (
     <aside className="hidden lg:flex fixed inset-y-0 left-0 w-72 flex-col border-r border-line bg-surface/60 backdrop-blur-xl px-5 py-8">
       <div className="flex items-center gap-3 px-3">
-        <div className="w-10 h-10 rounded-2xl bg-accent text-white flex items-center justify-center shadow-accent">
-          <Dumbbell className="w-5 h-5" />
-        </div>
+        <img src="/brand/logo-light.png" alt="" className="h-9 w-auto" />
         <div>
-          <p className="text-[15px] font-bold tracking-tight text-ink">Gym Tracker</p>
+          <p className="text-[15px] font-bold tracking-tight text-ink">SN Lift</p>
           <p className="text-xs text-muted">Train slimmer</p>
         </div>
       </div>
