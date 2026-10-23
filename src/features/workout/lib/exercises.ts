@@ -1,4 +1,4 @@
-import { Routine, activeExercises, parseWeight, parseReps } from "@/src/lib/storage";
+import { Routine, activeExercises, getSessionHistory } from "@/src/lib/storage";
 import { parseDecimal, parseInteger, parseRestSeconds } from "@/src/lib/format";
 
 export interface SessionExercise {
@@ -18,7 +18,38 @@ export interface SessionExercise {
 export interface ExerciseLog {
   training: number;
   date: string | null;
+  routineName: string;
   sets: { weight: number; reps: number }[];
+}
+
+export const exerciseKey = (name: string) => name.trim().toLowerCase();
+
+// All logged sessions per exercise name across every routine (archived ones too), newest first
+export function buildHistoryByName(routines: Routine[]): Map<string, ExerciseLog[]> {
+  const byName = new Map<string, ExerciseLog[]>();
+  routines.forEach(routine => {
+    getSessionHistory(routine).forEach(session => {
+      session.exercises.forEach(ex => {
+        const key = exerciseKey(ex.name);
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key)!.push({
+          training: session.training,
+          date: session.date,
+          routineName: routine.workout_name,
+          sets: ex.sets,
+        });
+      });
+    });
+  });
+  byName.forEach(list =>
+    list.sort((a, b) => {
+      if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (a.date) return -1;
+      if (b.date) return 1;
+      return b.training - a.training;
+    })
+  );
+  return byName;
 }
 
 export interface SetEntry {
@@ -38,12 +69,13 @@ export function buildSets(count: number, existing: SetEntry[] = []): SetEntry[] 
   return Array.from({ length: count }, (_, i) => existing[i] ?? emptySet());
 }
 
-export function buildSessionExercises(routine: Routine): {
+export function buildSessionExercises(routine: Routine, allRoutines: Routine[] = [routine]): {
   exercises: SessionExercise[];
   logs: Record<string, ExerciseLog[]>;
 } {
   const exercises: SessionExercise[] = [];
   const logs: Record<string, ExerciseLog[]> = {};
+  const history = buildHistoryByName(allRoutines);
 
   activeExercises(routine).forEach((ex: any) => {
     const uid: string = ex.uid;
@@ -74,27 +106,7 @@ export function buildSessionExercises(routine: Routine): {
       imageUrl: ex.imageUrl ?? undefined,
     });
 
-    const byTraining = new Map<number, { setNumber: number; weight: number; reps: number }[]>();
-    let dateFor: Record<number, string> = {};
-    (ex.sets || []).forEach((set: any) => {
-      const setNumber = parseInt(set.set_number);
-      if (!(setNumber >= 1 && setNumber <= targetSets)) return;
-      set.history?.forEach((h: any) => {
-        const weight = parseWeight(h.weight);
-        const reps = parseReps(h.reps);
-        if (weight === null || reps === null || typeof h.training !== "number") return;
-        if (!byTraining.has(h.training)) byTraining.set(h.training, []);
-        byTraining.get(h.training)!.push({ setNumber, weight, reps });
-        if (h.date && !dateFor[h.training]) dateFor = { ...dateFor, [h.training]: h.date };
-      });
-    });
-    logs[uid] = Array.from(byTraining.entries())
-      .map(([training, sets]) => ({
-        training,
-        date: routine.trainingDates?.[training] ?? dateFor[training] ?? null,
-        sets: sets.sort((a, b) => a.setNumber - b.setNumber).map(({ weight, reps }) => ({ weight, reps })),
-      }))
-      .sort((a, b) => b.training - a.training);
+    logs[uid] = history.get(exerciseKey(ex.name)) ?? [];
   });
 
   return { exercises, logs };

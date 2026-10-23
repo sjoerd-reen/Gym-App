@@ -369,8 +369,8 @@ export function getLastTrainedDate(routine: Routine): Date | null {
 }
 
 export function formatRelativeDate(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(new Date()) - startOfDay(date)) / (1000 * 60 * 60 * 24));
   if (diffDays === 0) return "Vandaag";
   if (diffDays === 1) return "Gisteren";
   if (diffDays < 7) return `${diffDays} dagen geleden`;

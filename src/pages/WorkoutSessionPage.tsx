@@ -88,6 +88,7 @@ export function WorkoutSessionPage() {
             count={exercises.length}
             sets={session.getSets(exercise.uid, exercise.targetSets)}
             logs={session.logs[exercise.uid] ?? []}
+            advice={session.advice[exercise.uid]}
             note={session.notes[exercise.uid] ?? ""}
             onSetChange={(index, field, value) => session.updateSet(exercise.uid, exercise.targetSets, index, field, value)}
             onPrefill={index => session.prefillSet(exercise.uid, exercise.targetSets, index)}

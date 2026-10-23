@@ -1,8 +1,8 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Camera, Check, ImageOff, Lightbulb, MessageSquareText, MoreHorizontal, Pencil, SendHorizontal,
-  Timer, Trash2,
+  Camera, Check, ChartLine, ImageOff, Lightbulb, MessageSquareText, MoreHorizontal, Pencil, Plus, Repeat2,
+  SendHorizontal, Timer, Trash2, TrendingUp,
 } from "lucide-react";
 import { NumberField } from "@/src/components/ui/NumberField";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
@@ -12,7 +12,9 @@ import { formatClock, formatKg } from "@/src/lib/format";
 import { formatRelativeDate } from "@/src/lib/storage";
 import { cn } from "@/src/lib/utils";
 import { ExerciseLog, SessionExercise, SetEntry } from "../lib/exercises";
+import type { Advice } from "../lib/progression";
 import { EditExerciseSheet } from "./EditExerciseSheet";
+import { ProgressSheet } from "./ProgressSheet";
 import type { ExerciseEdits } from "../hooks/useWorkoutSession";
 
 interface ExerciseCardProps {
@@ -21,6 +23,7 @@ interface ExerciseCardProps {
   count: number;
   sets: SetEntry[];
   logs: ExerciseLog[];
+  advice?: Advice | null;
   note: string;
   onSetChange: (index: number, field: "weight" | "reps", value: string) => void;
   onPrefill: (index: number) => void;
@@ -34,8 +37,9 @@ interface ExerciseCardProps {
 }
 
 export const ExerciseCard = memo(function ExerciseCard(props: ExerciseCardProps) {
-  const { exercise, position, count, sets, logs, note } = props;
+  const { exercise, position, count, sets, logs, advice, note } = props;
   const [editing, setEditing] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
   const [confirm, setConfirm] = useState<"exercise" | "image" | null>(null);
   const last = logs[0];
   const done = sets.filter(s => s.completed).length;
@@ -88,12 +92,23 @@ export const ExerciseCard = memo(function ExerciseCard(props: ExerciseCardProps)
           </div>
         )}
 
+        {advice && <AdviceCard advice={advice} />}
+
         {last && (
-          <div className="mt-4 flex items-center gap-3 overflow-x-auto no-scrollbar">
-            <span className="text-xs font-semibold text-muted shrink-0">
-              Vorige keer{last.date ? ` · ${formatRelativeDate(new Date(last.date)).toLowerCase()}` : ""}
-            </span>
-            <div className="flex gap-1.5">
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-muted truncate">
+                Vorige keer{last.date ? ` · ${formatRelativeDate(new Date(last.date)).toLowerCase()}` : ""}
+              </span>
+              <button
+                onClick={() => setShowProgress(true)}
+                className="inline-flex items-center gap-1.5 h-8 px-3 -mr-1 rounded-full text-xs font-semibold text-accent hover:bg-accent-soft transition-colors shrink-0"
+              >
+                <ChartLine className="w-4 h-4" />
+                Progressie
+              </button>
+            </div>
+            <div className="mt-1.5 flex gap-1.5 overflow-x-auto no-scrollbar">
               {last.sets.map((s, i) => (
                 <span key={i} className="px-2 py-1 rounded-lg bg-subtle text-xs font-semibold text-ink-2 tabular-nums whitespace-nowrap">
                   {formatKg(s.weight)} × {s.reps}
@@ -116,7 +131,8 @@ export const ExerciseCard = memo(function ExerciseCard(props: ExerciseCardProps)
                 key={i}
                 index={i}
                 set={set}
-                previous={last?.sets[i]}
+                hint={advice?.sets[i] ?? last?.sets[i]}
+                hintIsAdvice={Boolean(advice)}
                 onChange={props.onSetChange}
                 onPrefill={props.onPrefill}
                 onRest={() => props.onStartRest(exercise.restSeconds)}
@@ -132,6 +148,13 @@ export const ExerciseCard = memo(function ExerciseCard(props: ExerciseCardProps)
           onSave={props.onSaveNote}
         />
       </div>
+
+      <ProgressSheet
+        open={showProgress}
+        onClose={() => setShowProgress(false)}
+        exerciseName={exercise.name}
+        logs={logs}
+      />
 
       <EditExerciseSheet
         open={editing}
@@ -290,16 +313,39 @@ function ExerciseMenu({ hasImage, onEdit, onDeleteImage, onDelete }: { hasImage:
   );
 }
 
+const ADVICE_STYLE = {
+  increase: { icon: TrendingUp, label: "Meer gewicht" },
+  "more-reps": { icon: Plus, label: "Eén rep meer" },
+  repeat: { icon: Repeat2, label: "Zelfde gewicht" },
+} as const;
+
+function AdviceCard({ advice }: { advice: Advice }) {
+  const { icon: Icon, label } = ADVICE_STYLE[advice.kind];
+  return (
+    <div className="mt-4 flex items-start gap-3 rounded-2xl bg-accent-soft px-3.5 py-3">
+      <div className="w-8 h-8 rounded-xl bg-accent text-white flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">Advies · {label}</p>
+        <p className="mt-0.5 text-[17px] font-bold tracking-tight text-ink tabular-nums">{advice.title}</p>
+        <p className="mt-0.5 text-[13px] leading-snug text-ink-2">{advice.reason}</p>
+      </div>
+    </div>
+  );
+}
+
 interface SetRowProps {
   index: number;
   set: SetEntry;
-  previous?: { weight: number; reps: number };
+  hint?: { weight: number; reps: number };
+  hintIsAdvice: boolean;
   onChange: (index: number, field: "weight" | "reps", value: string) => void;
   onPrefill: (index: number) => void;
   onRest: () => void;
 }
 
-const SetRow = memo(function SetRow({ index, set, previous, onChange, onPrefill, onRest }: SetRowProps) {
+const SetRow = memo(function SetRow({ index, set, hint, hintIsAdvice, onChange, onPrefill, onRest }: SetRowProps) {
   const state = set.completed ? "done" : "default";
   return (
     <div className="grid grid-cols-[44px_1fr_1fr_48px] gap-2.5 items-center">
@@ -309,8 +355,8 @@ const SetRow = memo(function SetRow({ index, set, previous, onChange, onPrefill,
           "h-14 rounded-2xl text-[15px] font-bold tabular-nums flex items-center justify-center transition-colors",
           set.completed ? "bg-success text-white" : "bg-subtle text-ink-2 hover:bg-line"
         )}
-        aria-label={previous ? `Set ${index + 1}: vul vorige waarden in` : `Set ${index + 1}`}
-        title={previous ? "Vul vorige keer in" : undefined}
+        aria-label={hint ? `Set ${index + 1}: vul ${hintIsAdvice ? "advies" : "vorige waarden"} in` : `Set ${index + 1}`}
+        title={hint ? (hintIsAdvice ? "Vul advies in" : "Vul vorige keer in") : undefined}
       >
         {set.completed ? <Check className="w-[18px] h-[18px]" strokeWidth={3} /> : index + 1}
       </button>
@@ -318,7 +364,7 @@ const SetRow = memo(function SetRow({ index, set, previous, onChange, onPrefill,
         label={`Set ${index + 1} gewicht in kg`}
         mode="decimal"
         value={set.weight}
-        placeholder={previous ? formatKg(previous.weight) : "0"}
+        placeholder={hint ? formatKg(hint.weight) : "0"}
         onValueChange={v => onChange(index, "weight", v)}
         state={state}
       />
@@ -326,7 +372,7 @@ const SetRow = memo(function SetRow({ index, set, previous, onChange, onPrefill,
         label={`Set ${index + 1} herhalingen`}
         mode="integer"
         value={set.reps}
-        placeholder={previous ? String(previous.reps) : "0"}
+        placeholder={hint ? String(hint.reps) : "0"}
         onValueChange={v => onChange(index, "reps", v)}
         state={state}
       />

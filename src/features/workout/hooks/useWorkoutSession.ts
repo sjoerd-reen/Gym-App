@@ -11,6 +11,7 @@ import { parseDecimal, parseInteger } from "@/src/lib/format";
 import {
   SetEntry, WorkoutSummary, buildSessionExercises, buildSets, calculateSummary, isSetComplete,
 } from "../lib/exercises";
+import { getAdvice } from "../lib/progression";
 import { useRestTimer } from "./useRestTimer";
 
 export interface ExerciseEdits {
@@ -55,8 +56,13 @@ export function useWorkoutSession(routineId: string) {
   const rest = useRestTimer(initialDraft?.rest ?? null);
 
   const { exercises, logs } = useMemo(
-    () => (routine ? buildSessionExercises(routine) : { exercises: [], logs: {} }),
-    [routine]
+    () => (routine ? buildSessionExercises(routine, routines) : { exercises: [], logs: {} }),
+    [routine, routines]
+  );
+
+  const advice = useMemo(
+    () => Object.fromEntries(exercises.map(ex => [ex.uid, getAdvice(ex.targetSets, ex.targetReps, logs[ex.uid]?.[0])])),
+    [exercises, logs]
   );
 
   // Every change is written as a draft, so closing the app never loses a workout
@@ -100,7 +106,7 @@ export function useWorkoutSession(routineId: string) {
 
   const prefillSet = useCallback(
     (uid: string, target: number, index: number) => {
-      const last = logs[uid]?.[0]?.sets[index];
+      const last = advice[uid]?.sets[index] ?? logs[uid]?.[0]?.sets[index];
       if (!last) return;
       setSets(prev => {
         const list = buildSets(target, prev[uid]);
@@ -110,7 +116,7 @@ export function useWorkoutSession(routineId: string) {
         return { ...prev, [uid]: list };
       });
     },
-    [logs]
+    [logs, advice]
   );
 
   const setNote = useCallback((uid: string, note: string) => {
@@ -231,6 +237,7 @@ export function useWorkoutSession(routineId: string) {
     routine,
     exercises,
     logs,
+    advice,
     notes,
     summary,
     startedAt: startedAt.current,
