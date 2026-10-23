@@ -42,3 +42,8 @@ export function compressImage(file: File, maxWidth = 800, maxHeight = 800, quali
     reader.onerror = (error) => reject(error);
   });
 }
+
+// Matches the logo: S in navy, N in orange
+export function profileColor(name: string): string {
+  return name === "Nikita" ? "bg-brand-n" : "bg-brand-s";
+}

@@ -3,11 +3,9 @@ import { motion } from "motion/react";
 import { ArrowRight } from "lucide-react";
 import { useUser } from "@/src/app/providers/UserProvider";
 import type { User } from "@/src/lib/storage";
+import { cn, profileColor } from "@/src/lib/utils";
 
-const PROFILES: { name: User; tint: string }[] = [
-  { name: "Sjoerd", tint: "from-[#3d5afe] to-[#7b8cff]" },
-  { name: "Nikita", tint: "from-[#12b76a] to-[#5fd9a3]" },
-];
+const PROFILES: User[] = ["Sjoerd", "Nikita"];
 
 export function LoginPage() {
   const { user, login } = useUser();
@@ -39,21 +37,21 @@ export function LoginPage() {
         </motion.div>
 
         <div className="space-y-3">
-          {PROFILES.map((p, i) => (
+          {PROFILES.map((name, i) => (
             <motion.button
-              key={p.name}
-              onClick={() => choose(p.name)}
+              key={name}
+              onClick={() => choose(name)}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.1 + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
               whileTap={{ scale: 0.98 }}
               className="group w-full flex items-center gap-4 p-4 pr-5 rounded-[28px] bg-surface shadow-card border border-transparent hover:border-line text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20"
             >
-              <div className={`w-14 h-14 rounded-[20px] bg-gradient-to-br ${p.tint} text-white text-xl font-bold flex items-center justify-center`}>
-                {p.name.charAt(0)}
+              <div className={cn("w-14 h-14 rounded-[20px] text-white text-xl font-bold flex items-center justify-center", profileColor(name))}>
+                {name.charAt(0)}
               </div>
               <div className="flex-1">
-                <p className="text-lg font-semibold tracking-tight text-ink">{p.name}</p>
+                <p className="text-lg font-semibold tracking-tight text-ink">{name}</p>
                 <p className="text-sm text-muted">Tik om te starten</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-subtle text-ink-2 flex items-center justify-center transition-all group-hover:bg-accent group-hover:text-white">

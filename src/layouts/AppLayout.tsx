@@ -5,7 +5,7 @@ import { LogOut } from "lucide-react";
 import { NAV_ITEMS } from "./navigation";
 import { useUser, useRequiredUser } from "@/src/app/providers/UserProvider";
 import { useActiveDrafts } from "@/src/hooks/useActiveDrafts";
-import { cn } from "@/src/lib/utils";
+import { cn, profileColor } from "@/src/lib/utils";
 
 export function AppLayout() {
   return (
@@ -118,7 +118,8 @@ function Sidebar() {
 export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
   return (
     <div className={cn(
-      "rounded-full bg-gradient-to-br from-accent to-[#7b8cff] text-white font-bold flex items-center justify-center shrink-0",
+      "rounded-full text-white font-bold flex items-center justify-center shrink-0",
+      profileColor(name),
       size === "md" ? "w-10 h-10 text-sm" : "w-12 h-12 text-base"
     )}>
       {name.charAt(0)}
