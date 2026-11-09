@@ -131,8 +131,7 @@ export const ExerciseCard = memo(function ExerciseCard(props: ExerciseCardProps)
                 key={i}
                 index={i}
                 set={set}
-                hint={advice?.sets[i] ?? last?.sets[i]}
-                hintIsAdvice={Boolean(advice)}
+                previous={last?.sets[i]}
                 onChange={props.onSetChange}
                 onPrefill={props.onPrefill}
                 onRest={() => props.onStartRest(exercise.restSeconds)}
@@ -338,14 +337,13 @@ function AdviceCard({ advice }: { advice: Advice }) {
 interface SetRowProps {
   index: number;
   set: SetEntry;
-  hint?: { weight: number; reps: number };
-  hintIsAdvice: boolean;
+  previous?: { weight: number; reps: number };
   onChange: (index: number, field: "weight" | "reps", value: string) => void;
   onPrefill: (index: number) => void;
   onRest: () => void;
 }
 
-const SetRow = memo(function SetRow({ index, set, hint, hintIsAdvice, onChange, onPrefill, onRest }: SetRowProps) {
+const SetRow = memo(function SetRow({ index, set, previous, onChange, onPrefill, onRest }: SetRowProps) {
   const state = set.completed ? "done" : "default";
   return (
     <div className="grid grid-cols-[44px_1fr_1fr_48px] gap-2.5 items-center">
@@ -355,8 +353,8 @@ const SetRow = memo(function SetRow({ index, set, hint, hintIsAdvice, onChange, 
           "h-14 rounded-2xl text-[15px] font-bold tabular-nums flex items-center justify-center transition-colors",
           set.completed ? "bg-success text-white" : "bg-subtle text-ink-2 hover:bg-line"
         )}
-        aria-label={hint ? `Set ${index + 1}: vul ${hintIsAdvice ? "advies" : "vorige waarden"} in` : `Set ${index + 1}`}
-        title={hint ? (hintIsAdvice ? "Vul advies in" : "Vul vorige keer in") : undefined}
+        aria-label={previous ? `Set ${index + 1}: vul vorige waarden in` : `Set ${index + 1}`}
+        title={previous ? "Vul vorige keer in" : undefined}
       >
         {set.completed ? <Check className="w-[18px] h-[18px]" strokeWidth={3} /> : index + 1}
       </button>
@@ -364,7 +362,7 @@ const SetRow = memo(function SetRow({ index, set, hint, hintIsAdvice, onChange, 
         label={`Set ${index + 1} gewicht in kg`}
         mode="decimal"
         value={set.weight}
-        placeholder={hint ? formatKg(hint.weight) : "0"}
+        placeholder={previous ? formatKg(previous.weight) : "0"}
         onValueChange={v => onChange(index, "weight", v)}
         state={state}
       />
@@ -372,7 +370,7 @@ const SetRow = memo(function SetRow({ index, set, hint, hintIsAdvice, onChange, 
         label={`Set ${index + 1} herhalingen`}
         mode="integer"
         value={set.reps}
-        placeholder={hint ? String(hint.reps) : "0"}
+        placeholder={previous ? String(previous.reps) : "0"}
         onValueChange={v => onChange(index, "reps", v)}
         state={state}
       />

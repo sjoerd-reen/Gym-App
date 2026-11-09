@@ -106,7 +106,7 @@ export function useWorkoutSession(routineId: string) {
 
   const prefillSet = useCallback(
     (uid: string, target: number, index: number) => {
-      const last = advice[uid]?.sets[index] ?? logs[uid]?.[0]?.sets[index];
+      const last = logs[uid]?.[0]?.sets[index];
       if (!last) return;
       setSets(prev => {
         const list = buildSets(target, prev[uid]);
@@ -116,7 +116,7 @@ export function useWorkoutSession(routineId: string) {
         return { ...prev, [uid]: list };
       });
     },
-    [logs, advice]
+    [logs]
   );
 
   const setNote = useCallback((uid: string, note: string) => {

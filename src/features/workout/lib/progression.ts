@@ -36,7 +36,7 @@ function describeSets(sets: { weight: number; reps: number }[]): string {
   return sets.map(s => `${formatKg(s.weight)}×${s.reps}`).join(" · ");
 }
 
-// Double progression: climb the rep range at a fixed weight, add weight once every set hits the top
+// Progressive overload: once every set reaches the bottom of the rep range, add weight
 export function getAdvice(targetSets: number, targetReps: string, last?: ExerciseLog): Advice | null {
   if (!last || last.sets.length === 0) return null;
   const range = parseRepRange(targetReps);
@@ -51,42 +51,27 @@ export function getAdvice(targetSets: number, targetReps: string, last?: Exercis
     return { kind: "more-reps", sets, title: `${reps} reps`, reason: "Probeer per set één herhaling meer dan vorige keer." };
   }
 
-  const allAtTop = logged.length >= targetSets && logged.every(s => s.reps >= range.max);
-  if (allAtTop) {
-    const sets = previous.map(s => ({ weight: s.weight + weightStep(s.weight), reps: range.min }));
+  const allSetsDone = logged.length >= targetSets;
+  const allReachedMin = logged.every(s => s.reps >= range.min);
+
+  if (allSetsDone && allReachedMin) {
+    // A 0 kg set is bodyweight or a warm-up; there is no weight to add to it
+    const sets = previous.map(s => ({ weight: s.weight > 0 ? s.weight + weightStep(s.weight) : 0, reps: range.min }));
     return {
       kind: "increase",
       sets,
       title: describeSets(sets),
-      reason: `Vorige keer haalde je bij elke set ${range.max} reps. Tijd voor meer gewicht.`,
+      reason: `Vorige keer haalde je bij elke set minstens ${range.min} reps. Tijd voor meer gewicht.`,
     };
   }
 
-  if (logged.length < targetSets && logged.every(s => s.reps >= range.max)) {
-    const sets = previous.map(s => ({ weight: s.weight, reps: range.max }));
-    return {
-      kind: "repeat",
-      sets,
-      title: describeSets(sets),
-      reason: `Vorige keer deed je ${logged.length} van de ${targetSets} sets. Haal ze allemaal op ${range.max} reps, dan gaat het gewicht omhoog.`,
-    };
-  }
-
-  if (logged.some(s => s.reps < range.min)) {
-    const sets = previous.map(s => ({ weight: s.weight, reps: range.min }));
-    return {
-      kind: "repeat",
-      sets,
-      title: describeSets(sets),
-      reason: `Zelfde gewicht. Haal eerst ${range.min} reps bij elke set.`,
-    };
-  }
-
-  const sets = previous.map(s => ({ weight: s.weight, reps: Math.min(s.reps + 1, range.max) }));
+  const sets = previous.map(s => ({ weight: s.weight, reps: range.min }));
   return {
-    kind: "more-reps",
+    kind: "repeat",
     sets,
     title: describeSets(sets),
-    reason: `Zelfde gewicht, één rep meer. Bij ${range.max} reps per set gaat het gewicht omhoog.`,
+    reason: allReachedMin
+      ? `Vorige keer deed je ${logged.length} van de ${targetSets} sets. Haal bij alle sets ${range.min} reps, dan gaat het gewicht omhoog.`
+      : `Zelfde gewicht. Haal bij elke set ${range.min} reps, dan gaat het gewicht omhoog.`,
   };
 }
